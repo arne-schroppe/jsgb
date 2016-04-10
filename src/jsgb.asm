@@ -160,7 +160,7 @@ RST_38:
 
 	SECTION	"V-Blank IRQ Vector",HOME[$40]
 VBL_VECT:
-	reti
+  jp  VBlankHandler
 	
 	SECTION	"LCD IRQ Vector",HOME[$48]
 LCD_VECT:
@@ -241,6 +241,8 @@ JOYPAD_VECT:
 
 
 
+ANIMATION_CYCLE equ $30
+
 
 	SECTION "Program Start",HOME[$0150]
 Start::
@@ -260,6 +262,11 @@ Start::
 
 	ld		a, 0
 	ld		[vblank_flag], a
+
+  ld    [switch], a
+  ld    a, ANIMATION_CYCLE
+  ld    [switch_timer], a
+
 
 	; load the tiles
 	ld		bc, jellysplash_tile_data
@@ -448,6 +455,84 @@ InitPalettes
 	ret
 
 
+VBlankHandler::
+  ld    a, [switch_timer]
+  dec   a
+  ld    [switch_timer], a
+
+  jr    z, switch_tiles
+  jp    end_vblank_handler
+
+
+switch_tiles
+
+  ld   a, [switch]
+  cp   0
+  jr   z, switch_to_1
+
+  ; switch to 0
+  sub   a
+  ld    [switch], a
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $5 + $7
+  call  LoadAtPosition
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $5 + $A
+  call  LoadAtPosition
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $8 + $A
+  call  LoadAtPosition
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $8 + $7
+  call  LoadAtPosition
+
+  jp    reset_switch_timer
+
+
+switch_to_1
+  ld    a, 1
+  ld    [switch], a
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $5 + $7
+  call  LoadAtPosition
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $5 + $A
+  call  LoadAtPosition
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $8 + $A
+  call  LoadAtPosition
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $8 + $7
+  call  LoadAtPosition
+
+
+
+reset_switch_timer
+  ld    a, ANIMATION_CYCLE
+  ld    [switch_timer], a
+
+
+end_vblank_handler
+	ld		a, 1
+	ld		[vblank_flag], a
+  reti
+
 
 ; Graphics and Data
 
@@ -467,4 +552,9 @@ SECTION	"RAM_Other_Variables",BSS[$C000]
 vblank_flag:
 ds		1		; set if a vblank occured since last pass through game loop
 
+switch_timer:
+ds    1
+
+switch:
+ds    1
 
