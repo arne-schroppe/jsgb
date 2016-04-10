@@ -110,7 +110,7 @@ SPRITE_FLAGS_XFLIP		equ		%00100000	; sprite is horizontal flipped
 SPRITE_FLAGS_YFLIP		equ		%01000000	; sprite is vertical flipped
 SPRITE_FLAGS_PRIORITY	equ		%10000000	; sprite display priority (0=on top bkg & win, 1=behind bkg & win)
 
-
+TILES_PER_LINE  equ  $20
 	
 ;****************************************************************************************************************************************************
 ;*	user data (constants)
@@ -241,6 +241,7 @@ JOYPAD_VECT:
 
 
 
+
 	SECTION "Program Start",HOME[$0150]
 Start::
 	; init the stack pointer
@@ -264,28 +265,22 @@ Start::
 	ld		bc, jellysplash_tile_data
 	call	LoadTiles
 
-	; load the background map
-	ld		bc, jellysplash_map_data
-	call	LoadMapToBkg
+  call  ClearMap
+
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $3 + $4
+  call  LoadAtPosition
+
 
 	; init the palettes
 	call	InitPalettes
 
-	; clear the sprite data
-	call	InitSprites
 
-	; init  my spaceship sprite
-;	ld		a, $40
-;	ld		(spaceship_xpos), a
-;	ld		(spaceship_ypos), a
-;	ld		a, 2
-;	ld		(spaceship_tile), a
-;	ld		a, 0
-;	ld		(spaceship_flags), a
-
-	; set display to on, background on, window off, sprites on, sprite size 8x8
+	; set display to on, background on, window off, sprites off, sprite size 8x8
 	;	tiles at $8000, background map at $9800, window map at $9C00
-	ld		a, DISPLAY_FLAG + BKG_DISP_FLAG + SPRITE_DISP_FLAG + TILES_LOC + WINDOW_MAP_LOC
+	ld		a, DISPLAY_FLAG + BKG_DISP_FLAG + TILES_LOC + WINDOW_MAP_LOC
 	ldh		[LCDC_CONTROL],a
 
 	; allow interrupts to start occuring
@@ -299,11 +294,6 @@ Game_Loop
 	cp		0
 	jp		z, end_game_loop
 
-	; get this frame's joypad info
-	call	ReadJoypad
-
-	; adjust sprite due to d-pad presses
-;	call	MoveSpaceship
 
 	; reset vblank flag
 	ld		a, 0
@@ -372,37 +362,62 @@ load_tiles_loop
 
 
 
+
+ClearMap
+  ld    hl, MAP_MEM_LOC_0
+
+  ld    d, $20
+  ld    e, $20
+
+clear_map_loop
+	; TODO turn into macro
+	ldh		a, [LCDC_STATUS]	; get the status
+	and		SPRITE_MODE			; don't write during sprite and transfer modes
+	jr		nz, clear_map_loop
+
+  ld    a, 0
+  ld    [hli], a
+
+  dec   d
+  jp    nz, clear_map_loop
+  ld    d, $20
+
+  dec   e
+  jp    nz, clear_map_loop
+
+  ret
+
+
 ;----------------------------------------------------
-; load the tile map to the background
+; load tile at position
 ;
-; IN:	bc = address of map to load
+; IN:	b = Tile address upper part
+;     c = Tile address lower part
+;     de = tile pos
 ;----------------------------------------------------
-LoadMapToBkg
+LoadAtPosition
 	ld		hl, MAP_MEM_LOC_0	; load the map to map bank 0
+  add   hl, de
 
-	ld		d, $00	; 256 bytes per "block"
-	ld		e, $04	; 4 blocks (32x32 tiles, 1024 bytes)
-
-load_map_loop
+load_pos_loop
 	; only write during
 	ldh		a, [LCDC_STATUS]	; get the status
 	and		SPRITE_MODE			; don't write during sprite and transfer modes
-	jr		nz, load_map_loop
+	jr		nz, load_pos_loop
 
-	ld		a, [bc]		; get the next value from the source
-	ld		[hli], a	; load the value to the destination, incrementing dest. ptr
-	inc		bc			; increment the source ptr
+  ld    a, b
+  ld    [hli], a
+  inc   a
+  ld    [hli], a
 
-	; now loop de times
-	dec		d
-	jp		nz, load_map_loop
-	dec		e
-	jp		nz, load_map_loop
+  ld    de, TILES_PER_LINE - $02
+  add   hl, de  ; Go one line down
+  ld    a, c
+  ld    [hli], a
+  inc   a
+  ld    [hli], a
 
-	ret
-
-
-
+  ret
 
 ;----------------------------------------------------
 ; init the palettes to basic
@@ -419,254 +434,22 @@ InitPalettes
 
 
 
-;-----------------------------------------------------------------------
-; read the joypad
-;
-; output:
-; 		This loads two variables:
-;			joypad_held		- what buttons are currently held
-;			joypad_down		- what buttons went down since last joypad read
-;-----------------------------------------------------------------------
-ReadJoypad
-	; get the d-pad buttons
-	ld		a, PAD_PORT_DPAD		; select d-pad
-	ldh		[JOYPAD_REGISTER], a	; send it to the joypad
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]	; get the result back (takes a few cycles)
-	cpl			; bit-flip the result
-	and		PAD_OUTPUT_MASK		; mask out the output bits
-	swap	a					; put the d-pad button results to top nibble
-	ld		b, a				; and store it
-
-	; get A / B / SELECT / START buttons
-	ld		a, PAD_PORT_BUTTONS		; select buttons
-	ldh		[JOYPAD_REGISTER], a	; send it to the joypad
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]
-	ldh		a, [JOYPAD_REGISTER]	; get the result back (takes even more cycles?)
-	cpl			; bit-flip the result
-	and		PAD_OUTPUT_MASK		; mask out the output bits
-	or		b					; add it to the other button bits
-	ld		b, a			; put it back in c
-
-	; calculate the buttons that went down since last joypad read
-	ld		a, [joypad_held]	; grab last button bits
-	cpl							; invert them
-	and		b					; combine the bits with current bits
-	ld		[joypad_down], a	; store just-went-down button bits
-
-	ld		a, b
-	ld      [joypad_held], a	; store the held down button bits
-
-	ld		a, $30       ; reset joypad
-    ldh		[JOYPAD_REGISTER],A
-
-	ret			; done
-
-
-
-
-;---------------------------------------------------
-; my vblank routine - do all graphical changes here
-; while the display is not drawing
-;---------------------------------------------------
-VBlankFunc
-	di		; disable interrupts
-	push	af
-
-	; increment my little timer
-	ld		a, [ScrollTimer]			; get the scroll timer
-	inc		a					; increment it
-	ld		[ScrollTimer], a
-
-	; is it time to scroll yet?
-	and		%00000111
-	jr		nz, vblank_sprite_DMA
-
-vblank_do_scroll
-	; do a background screen scroll
-	ldh		a, [SCROLL_BKG_X]		; scroll the background horiz one bit
-	inc		a
-	ldh		[SCROLL_BKG_X], a
-
-; load the sprite attrib table to OAM memory
-vblank_sprite_DMA
-	ld		a, $c0				; dma from $c000 (where I have my local copy of the attrib table)
-	ldh		[DMA_REGISTER], a	; start the dma
-
-	ld		a, $28		; wait for 160 microsec (using a loop)
-vblank_dma_wait
-	dec		a
-	jr		nz, vblank_dma_wait
-
-	ld		hl, SPRITE_ATTRIB_MEM_LOC
-
-	; set the vblank occured flag
-	ld		a, 1
-	ld		[vblank_flag], a
-
-	pop af
-	ei		; enable interrupts
-	reti	; and done
-
-
-
-;-------------------------------------------------------------
-; adjust my spaceship sprite based on d-pad presses.  This
-; both moves the sprite and chooses the sprite attributes to
-; make the sprite face the correct direction
-;-------------------------------------------------------------
-MoveSpaceship
-	push	af
-
-	; check buttons for d-pad presses
-check_for_up
-	ld		a, [joypad_held]
-	bit		PADB_UP, a
-	jp		z, check_for_down	; if button not pressed then done
-
-	; up was held down
-	ld		a, [ScrollTimer]	; only move sprite every 2nd vblank
-	and		%00000001
-	jr		nz, check_for_left
-
-	; move sprite up a pixel
-	ld		a, [spaceship_ypos]
-	dec		a
-	ld		[spaceship_ypos], a
-
-	; don't check down, since up + down should never occur
-	jp		check_for_left
-
-check_for_down
-	ld		a, [joypad_held]
-	bit		PADB_DOWN, a
-	jp		z, check_for_left	; if button not pressed then done
-
-	; down was held down
-	ld		a, [ScrollTimer]	; only move sprite every 2nd vblank
-	and		%00000001
-	jr		nz, check_for_left
-
-	; move sprite up a pixel
-	ld		a, [spaceship_ypos]
-	inc		a
-	ld		[spaceship_ypos], a
-
-check_for_left
-	ld		a, [joypad_held]
-	bit		PADB_LEFT, a
-	jp		z, check_for_right	; if button not pressed then done
-
-	; left was pressed
-	ld		a, [ScrollTimer]	; only move sprite every 2nd vblank
-	and		%00000001
-	jr		nz, done_checking_dpad
-
-	; move sprite left one pixel
-	ld		a, [spaceship_xpos]
-	dec		a
-	ld		[spaceship_xpos], a
-
-	jp		done_checking_dpad	; if left was pressed, don't check right
-
-check_for_right
-	ld		a, [joypad_held]
-	bit		PADB_RIGHT, a
-	jp		z, done_checking_dpad	; if button not pressed then done
-
-	; right was pressed
-	ld		a, [ScrollTimer]	; only move sprite every 2nd vblank
-	and		%00000001
-	jr		nz, done_checking_dpad
-
-	; move sprite left one pixel
-	ld		a, [spaceship_xpos]
-	inc		a
-	ld		[spaceship_xpos], a
-
-done_checking_dpad
-	pop		af
-	ret
-
-
+; Graphics and Data
 
   SECTION "Tiles", HOME
 
   INCLUDE "graphics.inc"
 
 
-
-
 ; Internal ram
 
 
-SECTION	"RAM_Start_Sprites",BSS[$C000]
-
-; local version of sprite attrib table
-spaceship_ypos:
-ds 		1
-spaceship_xpos:
-ds		1
-spaceship_tile:
-ds		1
-spaceship_flags:
-ds		1
-
-; bullet sprites start here (16 of them)
-bullet_sprites:
-ds		1
 
 
-
-
-
-SECTION	"RAM_Other_Variables",BSS[$C0A0]
-; other variables
-
-; joypad values
-joypad_held:
-ds		1		; what buttons are currently held
-joypad_down:
-ds		1		; what buttons went down since last joypad read
-
-; scroll values
-world_x:
-ds		2
-world_y:
-ds		2
-
-x_scrl_accum:
-ds		1
-y_scrl_accum:
-ds		1
-
-; bullets (16 of them, 2 bytes for each)
-;	1st byte = orientation (3 bits) - if $ff, this bullet is unused
-;	2nd byte = time left to live (in vblanks)
-bullet_data:
-ds		32
+SECTION	"RAM_Other_Variables",BSS[$C000]
 
 ; frame timing
 vblank_flag:
 ds		1		; set if a vblank occured since last pass through game loop
-
-; scroll direction flag
-scrl_dir_flag:
-ds		1
-
-; temp variables
-ScrollTimer:
-ds		1		; temp variable for slowing down scroll speed
-
-
-
 
 
