@@ -270,7 +270,22 @@ Start::
 
   ld    b, $01
   ld    c, $05
-  ld    de, TILES_PER_LINE * $3 + $4
+  ld    de, TILES_PER_LINE * $5 + $7
+  call  LoadAtPosition
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $5 + $A
+  call  LoadAtPosition
+
+  ld    b, $01
+  ld    c, $05
+  ld    de, TILES_PER_LINE * $8 + $A
+  call  LoadAtPosition
+
+  ld    b, $03
+  ld    c, $07
+  ld    de, TILES_PER_LINE * $8 + $7
   call  LoadAtPosition
 
 
