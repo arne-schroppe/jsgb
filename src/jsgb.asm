@@ -1,96 +1,10 @@
-;****************************************************************************************************************************************************
-;*	Blank Simple Source File
-;*
-;****************************************************************************************************************************************************
-;*
-;*
-;****************************************************************************************************************************************************
+; system includes
+INCLUDE	"lib/hardware.inc"
+
 
 ;****************************************************************************************************************************************************
-;*	Includes
+;*	definitions
 ;****************************************************************************************************************************************************
-	; system includes
-	INCLUDE	"lib/hardware.inc"
-
-	; project includes
-;	INCLUDE	"blankasm.inc"
-
-
-; GAMEBOY SYSTEM CONSTANTS
-; the hardware registers for the Game Boy begin at address $FF00
-; All the 8 bit register addresses below are offsets relative to $FF00
-JOYPAD_REGISTER			equ		$00		; joypad
-PAD_PORT_DPAD			equ		%00100000	; select d-pad buttons
-PAD_PORT_BUTTONS		equ		%00010000	; select other buttons
-PAD_OUTPUT_MASK			equ		%00001111	; mask for the output buttons
-DPAD_DOWN				equ		7
-DPAD_UP					equ		6
-DPAD_LEFT				equ		5
-DPAD_RIGHT				equ		4
-START_BUTTON			equ		3
-SELECT_BUTTON			equ		2
-B_BUTTON				equ		1
-A_BUTTON				equ		0
-DPAD_DOWN_MASK			equ		%10000000
-DPAD_UP_MASK			equ		%01000000
-DPAD_LEFT_MASK			equ		%00100000
-DPAD_RIGHT_MASK			equ		%00010000
-START_BUTTON_MASK		equ		%00001000
-SELECT_BUTTON_MASK		equ		%00000100
-B_BUTTON_MASK			equ		%00000010
-A_BUTTON_MASK			equ		%00000001
-
-DIV_REGISTER			equ		$04		; divide timer... read to get time, write to reset it to 0
-TIMA_REGISTER			equ		$05		; main timer... freq is set in TAC reg, generates interupt when overflows
-TMA_REGISTER			equ		$06		; Timer Modulo... main timer loaded with this value after it overflows
-TAC_REGISTER			equ		$07		; Timer Control
-TIMER_STOP				equ		%00000100	; timer halt flag... 0=stop, 1=run
-TIMER_FREQ_MASK			equ		%00000011	; mask for timer frequency bits
-TIMER_FREQ_4KHz			equ		%00000000	; main timer runs at 4.096 KHz
-TIMER_FREQ_262KHz		equ		%00000001	; main timer runs at 262.144 KHz
-TIMER_FREQ_65KHZ		equ		%00000010	; main timer runs at 65.536 KHz
-TIMER_FREQ_16KHz		equ		%00000011	; main timer runs at 15.384 KHz
-
-IRQ_FLAG_REGISTER		equ		$0F		; Interrupt Flag
-VBLANK_INT				equ		%00000001	; bit 0 = vblank interrupt on/off
-LCDC_INT				equ		%00000010	; bit 1 = LCDC interrupt on/off
-TIMER_INT				equ		%00000100	; bit 2 = Timer Overflow interrupt on/off
-SERIAL_INT				equ		%00001000	; bit 3 = Serial I/O Transfer Completion interrupt on/off
-CONTROLLER_INT			equ		%00010000	; bit 4 = ??
-
-LCDC_CONTROL			equ		$40		; LCD (Graphics) Control
-BKG_DISP_FLAG			equ		%00000001	; bit 0 = background tile map is on if set
-SPRITE_DISP_FLAG		equ		%00000010	; bit 1 = sprites are on if set
-SPRITE_DISP_SIZE		equ		%00000100	; bit 2 = sprite size (0=8x8 pixels, 1=16x8)
-BKG_MAP_LOC				equ		%00001000	; bit 3 = background tile map location (0=$9800-$9bff, 1=$9c00-$9fff)
-TILES_LOC				equ		%00010000	; bit 4 = tile data location (0=$8800-$97ff, 1=$8000-$8fff)
-WINDOW_DISP_FLAG		equ		%00100000	; bit 5 = window tile map is on if set
-WINDOW_MAP_LOC			equ		%01000000	; bit 6 = window tile map location (0=$9800-$9bff, 1=$9c00-9fff)
-DISPLAY_FLAG			equ		%10000000	; bit 7 = LCD display on if set
-
-LCDC_STATUS				equ		$41		; LCDC Status
-DISP_CYCLE_MODE			equ		%00000011	; mask for the display cycle mode bits
-VBLANK_MODE				equ		%00000000	; system is in vertical blanking interval
-HBLANK_MODE				equ		%00000001	; system is in a horizontal blanking interval
-SPRITE_MODE				equ		%00000010	; system is reading sprite RAM
-LCD_TRANSFER			equ		%00000011	; system is transfering data to the LCD driver
-
-SCROLL_BKG_Y			equ		$42		; vertical scroll position of background tile map
-SCROLL_BKG_X			equ		$43		; horizontal scroll position of background tile map
-
-LCDC_LY_COUNTER			equ		$44		; increments every scan line (0..143 = display, 144-153 = vblank)
-LY_COMPARE				equ		$45		; ??
-
-DMA_REGISTER			equ		$46		; DMA Transfer and Start Address
-
-PALETTE_BKG				equ		$47		; palette data for background tile map
-PALETTE_SPRITE_0		equ		$48		; sprite palette 0 data
-PALETTE_SPRITE_1		equ		$49		; sprite palette 1 data
-
-POS_WINDOW_Y			equ		$4A		; window tile map Y position
-POS_WINDOW_X			equ		$4B		; window tile map X position
-
-INTERRUPT_ENABLE		equ		$ff		; Interrupt Enable
 
 ; $ff80 to $fffe is 128 bytes of internal RAM
 STACK_TOP				equ		$fff4		; put the stack here
@@ -104,23 +18,9 @@ MAP_MEM_LOC_1			equ		$9c00		; (select which uses what mem loc in LCDC_CONTROL re
 
 SPRITE_ATTRIB_MEM_LOC	equ		$fe00		; OAM memory (sprite attributes)
 
-; sprite attribute flags
-SPRITE_FLAGS_PAL		equ		%00010000	; palette (0=sprite pal 0, 1=sprite pal 1)
-SPRITE_FLAGS_XFLIP		equ		%00100000	; sprite is horizontal flipped
-SPRITE_FLAGS_YFLIP		equ		%01000000	; sprite is vertical flipped
-SPRITE_FLAGS_PRIORITY	equ		%10000000	; sprite display priority (0=on top bkg & win, 1=behind bkg & win)
 
 TILES_PER_LINE  equ  $20
-	
-;****************************************************************************************************************************************************
-;*	user data (constants)
-;****************************************************************************************************************************************************
-
-
-;****************************************************************************************************************************************************
-;*	equates
-;****************************************************************************************************************************************************
-
+ANIMATION_CYCLE equ $20
 
 ;****************************************************************************************************************************************************
 ;*	cartridge header
@@ -235,13 +135,10 @@ JOYPAD_VECT:
 	DW	$00
 
 
+
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
-
-
-
-ANIMATION_CYCLE equ $30
 
 
 	SECTION "Program Start",HOME[$0150]
@@ -250,17 +147,17 @@ Start::
 	ld		sp, $FFFE
 
 	; enable only vblank interrupts
-	ld		a, VBLANK_INT			; set vblank interrupt bit
-	ldh		[INTERRUPT_ENABLE], a	; load it to the hardware register
+	ld		a, IEF_VBLANK			; set vblank interrupt bit
+	ldh		[rIE], a	; load it to the hardware register
 
 	; standard inits
 	sub		a	;	a = 0
-	ldh		[LCDC_STATUS], a	; init status
-	ldh		[LCDC_CONTROL], a	; init LCD to everything off
-	ldh		[SCROLL_BKG_X], a	; background map will start at 0,0
-	ldh		[SCROLL_BKG_Y], a
+	ldh		[rSTAT], a	; init status
+	ldh		[rLCDC], a	; init LCD to everything off
+	ldh		[rSCX], a	; background map will start at 0,0
+	ldh		[rSCY], a
 
-	ld		a, 0
+	sub		a
 	ld		[vblank_flag], a
 
   ld    [switch], a
@@ -273,7 +170,6 @@ Start::
 	call	LoadTiles
 
   call  ClearMap
-
 
   ld    b, $01
   ld    c, $05
@@ -300,10 +196,9 @@ Start::
 	call	InitPalettes
 
 
-	; set display to on, background on, window off, sprites off, sprite size 8x8
-	;	tiles at $8000, background map at $9800, window map at $9C00
-	ld		a, DISPLAY_FLAG + BKG_DISP_FLAG + TILES_LOC + WINDOW_MAP_LOC
-	ldh		[LCDC_CONTROL],a
+	; set display options
+	ld		a, LCDCF_ON + LCDCF_BGON + LCDCF_WINOFF + LCDCF_OBJOFF + LCDCF_OBJ8 + LCDCF_BG8000 + LCDCF_BG9800 + LCDCF_WIN9C00
+	ldh		[rLCDC],a
 
 	; allow interrupts to start occuring
 	ei
@@ -322,7 +217,6 @@ Game_Loop
 	ld		[vblank_flag], a
 
 end_game_loop
-; time to loop!
 	jp		Game_Loop
 
 
@@ -334,22 +228,6 @@ end_game_loop
 
 	SECTION "Support Routines",HOME
 
-
-
-
-;------------------------------------------
-; init the local copy of the sprites
-;------------------------------------------
-InitSprites
-	ld		hl, $c000	; my sprites are at $c000
-	ld		b, 40*4		; 40 sprites, 4 bytes per sprite
-	ld		a, $ff
-init_sprites_loop
-	ld		[hli], a
-	dec		b
-	jr		nz, init_sprites_loop
-
-	ret
 
 
 ;----------------------------------------------------
@@ -366,8 +244,8 @@ LoadTiles
 
 load_tiles_loop
 	; only write during
-	ldh		a, [LCDC_STATUS]	; get the status
-	and		SPRITE_MODE			; don't write during sprite and transfer modes
+	ldh		a, [rSTAT]	; get the status
+	and		STATF_BUSY			; don't write during sprite and transfer modes
 	jr		nz, load_tiles_loop
 
 	ld		a, [bc]		; get the next value from the source
@@ -385,6 +263,9 @@ load_tiles_loop
 
 
 
+;----------------------------------------------------
+; Clear background map
+;----------------------------------------------------
 ClearMap
   ld    hl, MAP_MEM_LOC_0
 
@@ -393,8 +274,8 @@ ClearMap
 
 clear_map_loop
 	; TODO turn into macro
-	ldh		a, [LCDC_STATUS]	; get the status
-	and		SPRITE_MODE			; don't write during sprite and transfer modes
+	ldh		a, [rSTAT]	; get the status
+	and		STATF_BUSY			; don't write during sprite and transfer modes
 	jr		nz, clear_map_loop
 
   ld    a, 0
@@ -423,8 +304,8 @@ LoadAtPosition
 
 load_pos_loop
 	; only write during
-	ldh		a, [LCDC_STATUS]	; get the status
-	and		SPRITE_MODE			; don't write during sprite and transfer modes
+	ldh		a, [rSTAT]	; get the status
+	and		STATF_BUSY			; don't write during sprite and transfer modes
 	jr		nz, load_pos_loop
 
   ld    a, b
@@ -448,13 +329,16 @@ InitPalettes
 	ld		a, %11100100	; set palette colors
 
 	; load it to all the palettes
-	ldh		[PALETTE_BKG], a
-	ldh		[PALETTE_SPRITE_0], a
-	ldh		[PALETTE_SPRITE_1], a
+	ldh		[rBGP], a
+	ldh		[rOBP0], a
+	ldh		[rOBP1], a
 
 	ret
 
 
+;----------------------------------------------------
+; V-Blank interrupt handler
+;----------------------------------------------------
 VBlankHandler::
   ld    a, [switch_timer]
   dec   a
@@ -534,17 +418,18 @@ end_vblank_handler
   reti
 
 
+;----------------------------------------------------
 ; Graphics and Data
-
+;----------------------------------------------------
   SECTION "Tiles", HOME
 
   INCLUDE "graphics.inc"
 
 
+
+;----------------------------------------------------
 ; Internal ram
-
-
-
+;----------------------------------------------------
 
 SECTION	"RAM_Other_Variables",BSS[$C000]
 
