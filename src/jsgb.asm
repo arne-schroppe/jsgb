@@ -347,13 +347,13 @@ VBlankHandler:
 
 
 .switch_tiles
-
   ld   a, [switch]
   cp   0
   jr   z, .switch_to_1
 
+
 .switch_to_0
-  sub   a
+  ld    a, 0
   ld    [switch], a
 
   ld    b, $03
@@ -404,7 +404,6 @@ VBlankHandler:
   call  LoadAtPosition
 
 
-
 .reset_switch_timer
   ld    a, ANIMATION_CYCLE
   ld    [switch_timer], a
@@ -414,6 +413,7 @@ VBlankHandler:
 	ld		a, 1
 	ld		[vblank_flag], a
   reti
+
 
 
 ;----------------------------------------------------
