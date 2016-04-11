@@ -16,8 +16,6 @@ TILES_MEM_LOC_1			equ		$8000		; tile maps and sprite tiles
 MAP_MEM_LOC_0			equ		$9800		; background and window tile maps
 MAP_MEM_LOC_1			equ		$9c00		; (select which uses what mem loc in LCDC_CONTROL register)
 
-SPRITE_ATTRIB_MEM_LOC	equ		$fe00		; OAM memory (sprite attributes)
-
 
 TILES_PER_LINE  equ  $20
 ANIMATION_CYCLE equ $20
@@ -142,7 +140,7 @@ JOYPAD_VECT:
 
 
 	SECTION "Program Start",HOME[$0150]
-Start::
+Start:
 	; init the stack pointer
 	ld		sp, $FFFE
 
@@ -205,19 +203,19 @@ Start::
 
 
 ; main game loop
-Game_Loop
+.Game_Loop
 	; don't do a frame update unless we have had a vblank
 	ld		a, [vblank_flag]
 	cp		0
-	jp		z, end_game_loop
+	jp		z, .end
 
 
 	; reset vblank flag
 	ld		a, 0
 	ld		[vblank_flag], a
 
-end_game_loop
-	jp		Game_Loop
+.end
+	jp		.Game_Loop
 
 
 
@@ -235,18 +233,18 @@ end_game_loop
 ;
 ; IN:	bc = address of tile data to load
 ;----------------------------------------------------
-LoadTiles
+LoadTiles:
 	ld		hl, TILES_MEM_LOC_1	; load the tiles to tiles bank 1
 
 	ld		de, 4 * 16
 	ld		d, $10  ; 16 bytes per tile
 	ld		e, 12  ; number of tiles to load
 
-load_tiles_loop
+.loop
 	; only write during
 	ldh		a, [rSTAT]	; get the status
 	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, load_tiles_loop
+	jr		nz, .loop
 
 	ld		a, [bc]		; get the next value from the source
 	ld		[hli], a	; load the value to the destination, incrementing dest. ptr
@@ -254,9 +252,9 @@ load_tiles_loop
 
 	; now loop de times
 	dec		d
-	jp		nz, load_tiles_loop
+	jp		nz, .loop
 	dec		e
-	jp		nz, load_tiles_loop
+	jp		nz, .loop
 
 	ret
 
@@ -266,27 +264,27 @@ load_tiles_loop
 ;----------------------------------------------------
 ; Clear background map
 ;----------------------------------------------------
-ClearMap
+ClearMap:
   ld    hl, MAP_MEM_LOC_0
 
   ld    d, $20
   ld    e, $20
 
-clear_map_loop
+.loop
 	; TODO turn into macro
 	ldh		a, [rSTAT]	; get the status
 	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, clear_map_loop
+	jr		nz, .loop
 
   ld    a, 0
   ld    [hli], a
 
   dec   d
-  jp    nz, clear_map_loop
+  jp    nz, .loop
   ld    d, $20
 
   dec   e
-  jp    nz, clear_map_loop
+  jp    nz, .loop
 
   ret
 
@@ -298,15 +296,15 @@ clear_map_loop
 ;     c = Tile address lower part
 ;     de = tile pos
 ;----------------------------------------------------
-LoadAtPosition
+LoadAtPosition:
 	ld		hl, MAP_MEM_LOC_0	; load the map to map bank 0
   add   hl, de
 
-load_pos_loop
+.loop
 	; only write during
 	ldh		a, [rSTAT]	; get the status
 	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, load_pos_loop
+	jr		nz, .loop
 
   ld    a, b
   ld    [hli], a
@@ -325,7 +323,7 @@ load_pos_loop
 ;----------------------------------------------------
 ; init the palettes to basic
 ;----------------------------------------------------
-InitPalettes
+InitPalettes:
 	ld		a, %11100100	; set palette colors
 
 	; load it to all the palettes
@@ -339,22 +337,22 @@ InitPalettes
 ;----------------------------------------------------
 ; V-Blank interrupt handler
 ;----------------------------------------------------
-VBlankHandler::
+VBlankHandler:
   ld    a, [switch_timer]
   dec   a
   ld    [switch_timer], a
 
-  jr    z, switch_tiles
-  jp    end_vblank_handler
+  jr    z, .switch_tiles
+  jp    .end
 
 
-switch_tiles
+.switch_tiles
 
   ld   a, [switch]
   cp   0
-  jr   z, switch_to_1
+  jr   z, .switch_to_1
 
-  ; switch to 0
+.switch_to_0
   sub   a
   ld    [switch], a
 
@@ -378,10 +376,10 @@ switch_tiles
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadAtPosition
 
-  jp    reset_switch_timer
+  jp    .reset_switch_timer
 
 
-switch_to_1
+.switch_to_1
   ld    a, 1
   ld    [switch], a
 
@@ -407,12 +405,12 @@ switch_to_1
 
 
 
-reset_switch_timer
+.reset_switch_timer
   ld    a, ANIMATION_CYCLE
   ld    [switch_timer], a
 
 
-end_vblank_handler
+.end
 	ld		a, 1
 	ld		[vblank_flag], a
   reti
