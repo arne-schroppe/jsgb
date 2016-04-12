@@ -94,7 +94,7 @@ JOYPAD_VECT:
 		;0123
 
 	; $0143 (Color GameBoy compatibility code)
-	DB	$00	; $00 - DMG 
+	DB	$C0	; $00 - DMG 
 			; $80 - DMG/GBC
 			; $C0 - GBC Only cartridge
 
@@ -247,14 +247,14 @@ LoadTiles:
 	jr		nz, .loop
 
 	ld		a, [bc]		; get the next value from the source
-	ld		[hli], a	; load the value to the destination, incrementing dest. ptr
+	ldi	  [hl], a	; load the value to the destination, incrementing dest. ptr
 	inc		bc			; increment the source ptr
 
 	; now loop de times
 	dec		d
-	jp		nz, .loop
+	jr		nz, .loop
 	dec		e
-	jp		nz, .loop
+	jr		nz, .loop
 
 	ret
 
@@ -277,14 +277,14 @@ ClearMap:
 	jr		nz, .loop
 
   ld    a, 0
-  ld    [hli], a
+  ldi   [hl], a
 
   dec   d
-  jp    nz, .loop
+  jr    nz, .loop
   ld    d, $20
 
   dec   e
-  jp    nz, .loop
+  jr    nz, .loop
 
   ret
 
@@ -298,7 +298,7 @@ ClearMap:
 ;----------------------------------------------------
 LoadAtPosition:
 	ld		hl, MAP_MEM_LOC_0	; load the map to map bank 0
-  add   hl, de
+  add   hl, de  ; move to tile position
 
 .loop
 	; only write during
@@ -307,16 +307,16 @@ LoadAtPosition:
 	jr		nz, .loop
 
   ld    a, b
-  ld    [hli], a
+  ldi   [hl], a
   inc   a
-  ld    [hli], a
+  ldi   [hl], a
 
   ld    de, TILES_PER_LINE - $02
   add   hl, de  ; Go one line down
   ld    a, c
-  ld    [hli], a
+  ldi   [hl], a
   inc   a
-  ld    [hli], a
+  ldi   [hl], a
 
   ret
 
@@ -376,7 +376,7 @@ VBlankHandler:
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadAtPosition
 
-  jp    .reset_switch_timer
+  jr    .reset_switch_timer
 
 
 .switch_to_1
