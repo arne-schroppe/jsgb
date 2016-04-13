@@ -1,9 +1,12 @@
 NAME=jsgb
-all:
-	rgbasm -ojsgb.obj jsgb.asm
-	rgbasm -orom_header.obj rom_header.asm
-	rgblink -m$(NAME).map -n$(NAME).sym -o$(NAME).gb jsgb.obj rom_header.obj
+OBJ = jsgb.obj rom_header.obj
+
+all: $(OBJ)
+	rgblink -m$(NAME).map -n$(NAME).sym -o$(NAME).gb $^
 	rgbfix -p0 -v $(NAME).gb
+
+%.obj: %.asm
+	rgbasm -o$@ $<
 
 clean:
 	-rm *.map
