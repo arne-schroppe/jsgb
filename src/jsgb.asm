@@ -55,27 +55,6 @@ Start::
 
   call  ClearMap
 
-  ld    b, $01
-  ld    c, $05
-  ld    de, TILES_PER_LINE * $5 + $7
-  call  LoadAtPosition
-
-  ld    b, $03
-  ld    c, $07
-  ld    de, TILES_PER_LINE * $5 + $A
-  call  LoadAtPosition
-
-  ld    b, $01
-  ld    c, $05
-  ld    de, TILES_PER_LINE * $8 + $A
-  call  LoadAtPosition
-
-  ld    b, $03
-  ld    c, $07
-  ld    de, TILES_PER_LINE * $8 + $7
-  call  LoadAtPosition
-
-
 	; init the palettes
 	call	InitPalettes
 
@@ -113,6 +92,17 @@ Start::
 	SECTION "Support Routines",HOME
 
 
+;----------------------------------------------------
+; Wait while LCD is busy
+;----------------------------------------------------
+WaitBusy: MACRO
+.loop\@
+	; only write during
+	ldh		a, [rSTAT]	; get the status
+	and		STATF_BUSY			; don't write during sprite and transfer modes
+	jr		nz, .loop\@
+ENDM
+
 
 ;----------------------------------------------------
 ; load the tiles from ROM into the tile video memory
@@ -127,11 +117,7 @@ LoadTiles:
 	ld		e, 12  ; number of tiles to load
 
 .loop
-	; only write during
-	ldh		a, [rSTAT]	; get the status
-	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, .loop
-
+  WaitBusy
 	ld		a, [bc]		; get the next value from the source
 	ldi	  [hl], a	; load the value to the destination, incrementing dest. ptr
 	inc		bc			; increment the source ptr
@@ -146,7 +132,6 @@ LoadTiles:
 
 
 
-
 ;----------------------------------------------------
 ; Clear background map
 ;----------------------------------------------------
@@ -157,10 +142,7 @@ ClearMap:
   ld    e, $20
 
 .loop
-	; TODO turn into macro
-	ldh		a, [rSTAT]	; get the status
-	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, .loop
+  WaitBusy
 
   ld    a, 0
   ldi   [hl], a
@@ -220,10 +202,31 @@ InitPalettes:
 	ret
 
 
+
+;----------------------------------------------------
+; Push and pop registers
+;----------------------------------------------------
+PushRegs: MACRO
+  push af
+  push bc
+  push de
+  push hl
+ENDM
+
+PopRegs: MACRO
+  pop hl
+  pop de
+  pop bc
+  pop af
+ENDM
+
+
 ;----------------------------------------------------
 ; V-Blank interrupt handler
 ;----------------------------------------------------
 VBlankHandler::
+  PushRegs
+
   ld    a, [switch_timer]
   dec   a
   ld    [switch_timer], a
@@ -298,6 +301,8 @@ VBlankHandler::
 .end
 	ld		a, 1
 	ld		[vblank_flag], a
+
+  PopRegs
   reti
 
 
