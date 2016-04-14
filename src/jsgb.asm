@@ -49,6 +49,12 @@ Start::
   ld    [switch_timer], a
 
 
+  ld    a, [palette1]
+  ld    d, a
+  ld    a, [palette1 + 1]
+  ld    e, a
+  call  WriteColorPalette
+
 	; load the tiles
 	ld		bc, jellysplash_tile_data
 	call	LoadTiles
@@ -168,23 +174,43 @@ LoadAtPosition:
 	ld		hl, MAP_MEM_LOC_0	; load the map to map bank 0
   add   hl, de  ; move to tile position
 
-.loop
-	; only write during
-	ldh		a, [rSTAT]	; get the status
-	and		STATF_BUSY			; don't write during sprite and transfer modes
-	jr		nz, .loop
+  WaitBusy
 
+  push  hl
+
+
+  ; set palette
+  ld    a, 1        ; switch to VRAM bank 1
+  ldh   [rVBK], a
+
+  ld    a, %00000001
+  ldi   [hl], a
+  ldi    [hl], a
+  ld    de, TILES_PER_LINE - 2
+  add   hl, de  ; Go one line down
+  ldi   [hl], a
+  ld    [hl], a
+
+  ld    a, 0        ; switch back to VRAM bank 0
+  ldh   [rVBK], a
+
+
+  pop   hl   ; go back to start position
+
+
+  ; set tile data
   ld    a, b
   ldi   [hl], a
   inc   a
   ldi   [hl], a
 
-  ld    de, TILES_PER_LINE - $02
+  ld    de, TILES_PER_LINE - 2
   add   hl, de  ; Go one line down
   ld    a, c
   ldi   [hl], a
   inc   a
   ldi   [hl], a
+
 
   ret
 
@@ -200,6 +226,36 @@ InitPalettes:
 	ldh		[rOBP1], a
 
 	ret
+
+;----------------------------------------------------
+; Store color palette
+;
+; IN: d = Low order byte of palette
+;     e = High order byte of palette
+
+; TODO pass in start address of palette in rom
+;----------------------------------------------------
+WriteColorPalette:
+  ld	hl, $FF68	      ; set up a pointer to the BCPS
+  ld	c, %00001010	  ; Colour 1 of Palette 1
+  ld	a, c		        ; Load A with the write specification data
+
+  ldi	[hl], a		      ; place the data in the specification 
+			                ; register and move the pointer to the 
+			                ; BCPD
+  ld	a, d	          ; get the low data BYTE
+  ld	[hl], a 	      ; send the low data BYTE to the register
+  ld	hl, $FF68	      ; set the pointer back to the BCPS
+  ld	a, c	          ; Load A with the write specification 
+ 			                ; data
+  inc	a		            ; Add 1 to the data, therefore setting 
+ 			                ; BIT 0 which means we are now writing 
+ 			                ; the high data BYTE
+  ldi	[hl], a		      ; place the data in the specification 
+ 			                ; register
+ 			                ; and move the pointer to the BCPD
+  ld	a, e	          ; get the high data BYTE
+  ld	[hl],a	        ; send the high data BYTE to the register
 
 
 
@@ -314,6 +370,11 @@ VBlankHandler::
 
   INCLUDE "graphics.inc"
 
+
+  SECTION "Palettes", HOME
+
+palette1:
+dw  $0ce0 ; color 1
 
 
 ;----------------------------------------------------
