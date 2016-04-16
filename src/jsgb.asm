@@ -50,6 +50,7 @@ Start::
 
 
   ld    hl, palette1
+  ld    b, 1
   call  WriteColorPalette
 
 	; load the tiles
@@ -182,7 +183,7 @@ LoadAtPosition:
 
   ld    a, %00000001
   ldi   [hl], a
-  ldi    [hl], a
+  ldi   [hl], a
   ld    de, TILES_PER_LINE - 2
   add   hl, de  ; Go one line down
   ldi   [hl], a
@@ -228,46 +229,45 @@ InitPalettes:
 ; Store color palette
 ;
 ; IN: hl = address of palette
-
-; TODO also specify which palette to write
+;     b  = palette number
 ;----------------------------------------------------
 WriteColorPalette:
-  ld    b, %00001000
+
+  ; set up b for control register (palette number starts at bit 3)
+  ld    a, b
+  and   7
+  sla   a
+  sla   a
+  sla   a
+  ld    b, a
+
+  ; init loop counter
+  ld    d, 0
+
+.loop
+  push  de    ; save counter (d), since we need the register for other stuff
   ld    a, [hli]
   ld    d, a
   ld    a, [hli]
   ld    e, a
   push  hl
-  call LoadSingleColorForPalette
+  push  bc    ; push b
+  call  LoadSingleColorForPalette
+  pop   bc    ; pop b
   pop   hl
 
-  ld    b, %00001010
-  ld    a, [hli]
-  ld    d, a
-  ld    a, [hli]
-  ld    e, a
-  push  hl
-  call LoadSingleColorForPalette
-  pop   hl
+  inc   b     ; write next color on next iteration
+  pop   de    ; restore counter
 
-  ld    b, %00001100
-  ld    a, [hli]
-  ld    d, a
-  ld    a, [hli]
-  ld    e, a
-  push  hl
-  call LoadSingleColorForPalette
-  pop   hl
 
-  ld    b, %00001110
-  ld    a, [hli]
-  ld    d, a
-  ld    a, [hli]
-  ld    e, a
-  push  hl
-  call LoadSingleColorForPalette
-  pop   hl
+  ld    a, d  ; loop
+  cp    3     ; did we write all 4 colors?
+  jp    z, .end
+  inc   d
 
+  jp    .loop
+
+.end
   ret
 
 

@@ -72,7 +72,7 @@ JOYPAD_VECT:
 		;0123
 
 	; $0143 (Color GameBoy compatibility code)
-	DB	$C0	; $00 - DMG 
+	DB	$80	; $00 - DMG 
 			; $80 - DMG/GBC
 			; $C0 - GBC Only cartridge
 
@@ -86,7 +86,7 @@ JOYPAD_VECT:
 	DB	$00	; $00 - GameBoy
 
 	; $0147 (Cartridge type - all Color GameBoy cartridges are at least $19)
-	DB	$00	;
+	DB	$19	;
 
 	; $0148 (ROM size)
 	DB	$00	;
