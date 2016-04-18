@@ -24,7 +24,7 @@ r = r >> 5
 g = g >> 5
 b = b >> 5
 
-packed = (r << 10) + (g << 5) + b
+packed = (b << 10) + (g << 5) + r
 
 print("Packed colors")
 print("{0:b}".format(packed).zfill(16))

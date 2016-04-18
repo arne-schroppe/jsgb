@@ -389,8 +389,8 @@ VBlankHandler::
 
 palette1:
 dw $ffff
-dw $ffff
-dw $0000
+dw $ffe7
+dw $3c82
 dw $0000
 
 
