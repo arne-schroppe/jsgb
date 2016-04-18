@@ -48,6 +48,8 @@ Start::
   ld    a, ANIMATION_CYCLE
   ld    [switch_timer], a
 
+	; init the palettes
+	call	InitPalettes  ; non-color palette
 
   ld    hl, palette1
   ld    b, 1
@@ -59,8 +61,6 @@ Start::
 
   call  ClearMap
 
-	; init the palettes
-	call	InitPalettes
 
 
 	; set display options
@@ -181,7 +181,7 @@ LoadAtPosition:
   ld    a, 1        ; switch to VRAM bank 1
   ldh   [rVBK], a
 
-  ld    a, %00000001
+  ld    a, %00000001   ; which palette to use
   ldi   [hl], a
   ldi   [hl], a
   ld    de, TILES_PER_LINE - 2
@@ -245,55 +245,31 @@ WriteColorPalette:
   ld    d, 0
 
 .loop
-  push  de    ; save counter (d), since we need the register for other stuff
-  ld    a, [hli]
-  ld    d, a
   ld    a, [hli]
   ld    e, a
+
   push  hl
-  push  bc    ; push b
-  call  LoadSingleColorForPalette
-  pop   bc    ; pop b
+
+  ; write actual color data
+  ld	hl, rBCPS	      ; set up a pointer to the BCPS
+  ld  a, b
+  ld  [hli], a        ; set control register and move hl to data register
+  ld  a, e
+  ld  [hl], a         ; send data
+
   pop   hl
 
   inc   b     ; write next color on next iteration
-  pop   de    ; restore counter
-
 
   ld    a, d  ; loop
-  cp    3     ; did we write all 4 colors?
+  cp    7     ; did we write all color parts?
   jp    z, .end
   inc   d
-
   jp    .loop
 
 .end
   ret
 
-
-
-LoadSingleColorForPalette
-  ld	hl, rBCPS	      ; set up a pointer to the BCPS
-  ld	a, b
-
-  ldi	[hl], a		      ; place the data in the specification 
-			                ; register and move the pointer to the 
-			                ; BCPD
-  ld	a, d	          ; get the low data BYTE
-  ld	[hl], a 	      ; send the low data BYTE to the register
-  ld	hl, rBCPS	      ; set the pointer back to the BCPS
-  ld	a, c	          ; Load A with the write specification 
- 			                ; data
-  inc	a		            ; Add 1 to the data, therefore setting 
- 			                ; BIT 0 which means we are now writing 
- 			                ; the high data BYTE
-  ldi	[hl], a		      ; place the data in the specification 
- 			                ; register
- 			                ; and move the pointer to the BCPD
-  ld	a, e	          ; get the high data BYTE
-  ld	[hl],a	        ; send the high data BYTE to the register
-
-  ret
 
 
 
@@ -412,10 +388,10 @@ VBlankHandler::
   SECTION "Palettes", HOME
 
 palette1:
-dw  $0ce0
-dw  $1c00
-dw  $0087
-dw  $1084
+dw $ffff
+dw $ffff
+dw $0000
+dw $0000
 
 
 ;----------------------------------------------------
