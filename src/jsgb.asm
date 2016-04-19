@@ -9,13 +9,6 @@ INCLUDE	"lib/hardware.inc"
 ; $ff80 to $fffe is 128 bytes of internal RAM
 STACK_TOP				equ		$fff4		; put the stack here
 
-; video ram display locations
-TILES_MEM_LOC_0			equ		$8800		; tile map tiles only
-TILES_MEM_LOC_1			equ		$8000		; tile maps and sprite tiles
-
-MAP_MEM_LOC_0			equ		$9800		; background and window tile maps
-MAP_MEM_LOC_1			equ		$9c00		; (select which uses what mem loc in LCDC_CONTROL register)
-
 
 TILES_PER_LINE  equ  $20
 ANIMATION_CYCLE equ $20
@@ -114,7 +107,7 @@ ENDM
 ; IN:	bc = address of tile data to load
 ;----------------------------------------------------
 LoadTiles:
-	ld		hl, TILES_MEM_LOC_1	; load the tiles to tiles bank 1
+	ld		hl, _VRAM	; load the tiles to tiles bank 1
 
 	ld		de, 4 * 16
 	ld		d, $10  ; 16 bytes per tile
@@ -140,7 +133,7 @@ LoadTiles:
 ; Clear background map
 ;----------------------------------------------------
 ClearMap:
-  ld    hl, MAP_MEM_LOC_0
+  ld    hl, _SCRN0
 
   ld    d, $20
   ld    e, $20
@@ -169,7 +162,7 @@ ClearMap:
 ;     de = tile pos
 ;----------------------------------------------------
 LoadAtPosition:
-	ld		hl, MAP_MEM_LOC_0	; load the map to map bank 0
+	ld		hl, _SCRN0	; load the map to map bank 0
   add   hl, de  ; move to tile position
 
   WaitBusy
