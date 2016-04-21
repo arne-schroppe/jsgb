@@ -2,27 +2,29 @@ require 'rake/clean'
 
 APP_NAME = "jsgb"
 APP_EXTENSION = "gbc"
+GAME_FILE_NAME = "#{APP_NAME}.#{APP_EXTENSION}"
 
 files = FileList['*.asm']
 obj_files = files.ext('.obj')
 
-
 task :default => :compile
-
 
 desc "Create .#{APP_EXTENSION} file"
 task :compile => obj_files do |t|
-  sh "rgblink -m#{APP_NAME}.map -n#{APP_NAME}.sym -o#{APP_NAME}.gbc #{obj_files}"
+  sh "rgblink -m#{APP_NAME}.map -n#{APP_NAME}.sym -o#{GAME_FILE_NAME} #{obj_files}"
   sh "rgbfix -p0 -v #{APP_NAME}.#{APP_EXTENSION}"
 end
-CLOBBER << "#{APP_NAME}.#{APP_EXTENSION}"
-
+CLOBBER << GAME_FILE_NAME
 
 # How to turn .asm into .obj
 rule ".obj" => ".asm" do |t|
   sh "rgbasm -o#{t.name} #{t.source}"
 end
 
+desc "Deploy compiled file to flash card using ems-flasher"
+task :deploy => :compile do
+  sh "ems-flasher --write GAME_FILE_NAME"
+end
 
 # Set up 'clean' task
 CLEAN.include(obj_files)
