@@ -45,7 +45,7 @@ Start::
 	call	InitPalettes  ; non-color palette
 
   ld    hl, palette1
-  ld    b, 1
+  ld    b, $1
   call  WriteColorPalette
 
 	; load the tiles
@@ -54,10 +54,15 @@ Start::
 
   call  ClearMap
 
+  ld    b, $20
+  ld    c, $20
+  ld    d, $1
+  ld    e, $0
+  call  ShowSprite
 
 
 	; set display options
-	ld		a, LCDCF_ON + LCDCF_BGON + LCDCF_WINOFF + LCDCF_OBJOFF + LCDCF_OBJ8 + LCDCF_BG8000 + LCDCF_BG9800 + LCDCF_WIN9C00
+	ld		a, LCDCF_ON + LCDCF_BGON + LCDCF_WINOFF + LCDCF_OBJON + LCDCF_OBJ8 + LCDCF_BG8000 + LCDCF_BG9800 + LCDCF_WIN9C00
 	ldh		[rLCDC],a
 
 	; allow interrupts to start occuring
@@ -116,7 +121,7 @@ LoadTiles:
 .loop
   WaitBusy
 	ld		a, [bc]		; get the next value from the source
-	ldi	  [hl], a	; load the value to the destination, incrementing dest. ptr
+	ld	  [hli], a	; load the value to the destination, incrementing dest. ptr
 	inc		bc			; increment the source ptr
 
 	; now loop de times
@@ -142,7 +147,7 @@ ClearMap:
   WaitBusy
 
   ld    a, 0
-  ldi   [hl], a
+  ld    [hli], a
 
   dec   d
   jr    nz, .loop
@@ -161,7 +166,7 @@ ClearMap:
 ;     c = Tile address lower part
 ;     de = tile pos
 ;----------------------------------------------------
-LoadAtPosition:
+LoadTileAtPosition:
 	ld		hl, _SCRN0	; load the map to map bank 0
   add   hl, de  ; move to tile position
 
@@ -175,11 +180,11 @@ LoadAtPosition:
   ldh   [rVBK], a
 
   ld    a, %00000001   ; which palette to use
-  ldi   [hl], a
-  ldi   [hl], a
+  ld    [hli], a
+  ld    [hli], a
   ld    de, TILES_PER_LINE - 2
   add   hl, de  ; Go one line down
-  ldi   [hl], a
+  ld    [hli], a
   ld    [hl], a
 
   ld    a, 0        ; switch back to VRAM bank 0
@@ -191,16 +196,16 @@ LoadAtPosition:
 
   ; set tile data
   ld    a, b
-  ldi   [hl], a
+  ld    [hli], a
   inc   a
-  ldi   [hl], a
+  ld    [hli], a
 
   ld    de, TILES_PER_LINE - 2
   add   hl, de  ; Go one line down
   ld    a, c
-  ldi   [hl], a
+  ld    [hli], a
   inc   a
-  ldi   [hl], a
+  ld    [hli], a
 
 
   ret
@@ -264,6 +269,54 @@ WriteColorPalette:
   ret
 
 
+;----------------------------------------------------
+; Show a sprite at specific position
+;
+; in: b = x coord
+;     c = y coord
+;     d = tile
+;     e = palette
+;
+; TODO later in the game, a tile will always be displayed
+;      with the same color, so we should encode that 
+;      relationship somewhere.
+;----------------------------------------------------
+
+ShowSprite:
+
+  ld  hl, _OAMRAM
+  ld  a, c
+  ld  [hli], a ; y coord
+
+  ld  a, b
+  ld  [hli], a ; x coord
+
+  ld  a, d
+  ld  [hli], a ; tile
+
+  ld  a, e     ; Note: All other attributes except palette are 0 for now
+  ld  [hl], a  ; attributes
+
+  ret
+
+
+UpdateSpritePosition:
+
+  ld  hl, _OAMRAM
+  ld  a, [hl]
+
+  cp  $80
+  jp  nz, .update
+
+  ld  a, 0  ; reset to 0
+
+.update
+
+  inc a
+  ld  [hli], a
+  ld  [hl], a
+
+  ret
 
 
 ;----------------------------------------------------
@@ -290,13 +343,15 @@ ENDM
 VBlankHandler::
   PushRegs
 
+  call  UpdateSpritePosition
+
+
   ld    a, [switch_timer]
   dec   a
   ld    [switch_timer], a
 
   jr    z, .switch_tiles
   jp    .end
-
 
 .switch_tiles
   ld   a, [switch]
@@ -311,22 +366,22 @@ VBlankHandler::
   ld    b, $03
   ld    c, $07
   ld    de, TILES_PER_LINE * $5 + $7
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $01
   ld    c, $05
   ld    de, TILES_PER_LINE * $5 + $A
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $03
   ld    c, $07
   ld    de, TILES_PER_LINE * $8 + $A
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $01
   ld    c, $05
   ld    de, TILES_PER_LINE * $8 + $7
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   jr    .reset_switch_timer
 
@@ -338,22 +393,22 @@ VBlankHandler::
   ld    b, $01
   ld    c, $05
   ld    de, TILES_PER_LINE * $5 + $7
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $03
   ld    c, $07
   ld    de, TILES_PER_LINE * $5 + $A
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $01
   ld    c, $05
   ld    de, TILES_PER_LINE * $8 + $A
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
   ld    b, $03
   ld    c, $07
   ld    de, TILES_PER_LINE * $8 + $7
-  call  LoadAtPosition
+  call  LoadTileAtPosition
 
 
 .reset_switch_timer
