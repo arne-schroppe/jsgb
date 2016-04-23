@@ -11,7 +11,7 @@ STACK_TOP				equ		$fffe		; put the stack here
 
 
 TILES_PER_LINE  equ  $20
-ANIMATION_CYCLE equ $20
+ANIMATION_CYCLE equ  $20
 
 ;****************************************************************************************************************************************************
 ;*	Program Start
@@ -59,6 +59,12 @@ Start::
   ld    hl, active_jelly_1
   call  ShowSprite
 
+  ; Init cursor
+  ld    a, 20
+  ld    [cursor_x], a
+  ld    [cursor_y], a
+  ld    a, 0
+  ld    [cursor_state], a
 
 	; set display options
 	ld		a, LCDCF_ON + LCDCF_BGON + LCDCF_WINOFF + LCDCF_OBJON + LCDCF_OBJ8 + LCDCF_BG8000 + LCDCF_BG9800 + LCDCF_WIN9C00
@@ -75,6 +81,7 @@ Start::
 	cp		0
 	jp		z, .end
 
+  call  UpdateCursor
 
 	; reset vblank flag
 	ld		a, 0
@@ -92,6 +99,65 @@ Start::
 
 	SECTION "Support Routines",HOME
 
+INP_SELECT_DIR equ %00100000
+
+INP_BIT_DOWN_OR_START equ 3
+INP_BIT_UP_OR_SELECT  equ 2
+INP_BIT_LEFT_OR_B     equ 1
+INP_BIT_RIGHT_OR_A    equ 0
+
+CURSOR_STEP_SIZE equ 1
+
+UpdateCursor:
+
+  ; select what type of data we want to read
+  ld   a, INP_SELECT_DIR
+  ld   [rP1], a
+
+  ; read state of directional pad (several times because of button bounce)
+  ld   a, [rP1]
+  ld   a, [rP1]
+  ld   a, [rP1]
+  ld   a, [rP1]
+
+  cpl  ; if a button is pressed the bit is 0, so we invert it
+
+  ld   b, a
+
+.read_up
+  bit  INP_BIT_UP_OR_SELECT, b
+  jp   z, .read_down
+
+  ld   a, [cursor_y]
+  sub  a, CURSOR_STEP_SIZE
+  ld   [cursor_y], a
+
+.read_down
+  bit  INP_BIT_DOWN_OR_START, b
+  jp   z, .read_left
+
+  ld   a, [cursor_y]
+  add  a, CURSOR_STEP_SIZE
+  ld   [cursor_y], a
+
+.read_left
+  bit  INP_BIT_LEFT_OR_B, b
+  jp   z, .read_right
+
+  ld   a, [cursor_x]
+  sub  a, CURSOR_STEP_SIZE
+  ld   [cursor_x], a
+
+.read_right
+  bit  INP_BIT_RIGHT_OR_A, b
+  jp   z, .end
+
+  ld   a, [cursor_x]
+  add  a, CURSOR_STEP_SIZE
+  ld   [cursor_x], a
+
+.end
+  ret
 
 ;----------------------------------------------------
 ; Wait while LCD is busy
@@ -159,12 +225,11 @@ ClearMap:
 
 
 ;----------------------------------------------------
-; load tile at position
+; Load tile at position
 ;
 ; in:	hl = jelly address
 ;     de = tile pos
 ;----------------------------------------------------
-
 MoveNextBCToHL: MACRO
   inc   bc
   ld    a, [bc]
@@ -349,23 +414,16 @@ ShowSingleSprite:
 
 
 
-UpdateSpritePosition:
+UpdateCursorSpritePosition:
 
   WaitBusy
 
-  ld    hl, _OAMRAM
-  ld    a, [hl]
-
-  cp    $80
-  jp    nz, .update
-
-  ld    a, 0  ; reset to 0
-
-.update
-  inc   a
-
+  ld    a, [cursor_x]
   ld    b, a
+  ld    a, [cursor_y]
   ld    c, a
+
+  ld    hl, _OAMRAM
   call  WriteSpritePos
   AddM  b, 8
   call  WriteSpritePos
@@ -410,7 +468,7 @@ ENDM
 VBlankHandler::
   PushRegs
 
-  call  UpdateSpritePosition
+  call  UpdateCursorSpritePosition
 
 
   ld    a, [switch_timer]
@@ -532,6 +590,17 @@ SECTION	"RAM_Other_Variables",BSS[$C000]
 
 var1:
 ds    1
+
+
+cursor_x:
+ds 1
+
+cursor_y:
+ds 1
+
+cursor_state:
+ds 1
+
 
 ; frame timing
 vblank_flag:
