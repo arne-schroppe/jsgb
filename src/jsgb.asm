@@ -100,7 +100,7 @@ WaitBusy: MACRO
 .loop\@
 	; only write during
 	ldh		a, [rSTAT]	; get the status
-	and		STATF_BUSY			; don't write during sprite and transfer modes
+	bit		1, a		  	; don't write during sprite and transfer modes
 	jr		nz, .loop\@
 ENDM
 
@@ -314,6 +314,8 @@ ShowSprite:
   ld    [var1], a
   inc   de         ; move to tile data
 
+  WaitBusy
+
   ld    hl, _OAMRAM  ; TODO allow for an offset by index here
   call  ShowSingleSprite
   inc   de
@@ -349,6 +351,8 @@ ShowSingleSprite:
 
 UpdateSpritePosition:
 
+  WaitBusy
+
   ld    hl, _OAMRAM
   ld    a, [hl]
 
@@ -358,7 +362,6 @@ UpdateSpritePosition:
   ld    a, 0  ; reset to 0
 
 .update
-
   inc   a
 
   ld    b, a
