@@ -56,8 +56,7 @@ Start::
 
   ld    b, $20
   ld    c, $20
-  ld    d, $1
-  ld    e, $0
+  ld    hl, activeJelly1
   call  ShowSprite
 
 
@@ -109,7 +108,7 @@ ENDM
 ;----------------------------------------------------
 ; load the tiles from ROM into the tile video memory
 ;
-; IN:	bc = address of tile data to load
+; in:	bc = address of tile data to load
 ;----------------------------------------------------
 LoadTiles:
 	ld		hl, _VRAM	; load the tiles to tiles bank 1
@@ -162,11 +161,20 @@ ClearMap:
 ;----------------------------------------------------
 ; load tile at position
 ;
-; IN:	b = Tile address upper part
-;     c = Tile address lower part
+; in:	hl = jelly address
 ;     de = tile pos
 ;----------------------------------------------------
+
+MoveNextBCToHL: MACRO
+  inc   bc
+  ld    a, [bc]
+  ld    [hli], a
+ENDM
+
 LoadTileAtPosition:
+  ld    b, h
+  ld    c, l  ; move to bc, since we need hl for other stuff
+
 	ld		hl, _SCRN0	; load the map to map bank 0
   add   hl, de  ; move to tile position
 
@@ -174,20 +182,19 @@ LoadTileAtPosition:
 
   push  hl
 
-
   ; set palette
   ld    a, 1        ; switch to VRAM bank 1
   ldh   [rVBK], a
 
-  ld    a, %00000001   ; which palette to use
-  ld    [hli], a
-  ld    [hli], a
+  ld    a, [bc]   ; load palette
+  ld    [hli], a  ; set color for upper left
+  ld    [hli], a  ; upper right
   ld    de, TILES_PER_LINE - 2
-  add   hl, de  ; Go one line down
-  ld    [hli], a
-  ld    [hl], a
+  add   hl, de    ; Go one line down
+  ld    [hli], a  ; set color for lower left
+  ld    [hl], a   ; lower right
 
-  ld    a, 0        ; switch back to VRAM bank 0
+  ld    a, 0      ; switch back to VRAM bank 0
   ldh   [rVBK], a
 
 
@@ -195,20 +202,21 @@ LoadTileAtPosition:
 
 
   ; set tile data
-  ld    a, b
-  ld    [hli], a
-  inc   a
-  ld    [hli], a
 
+  ; TODO The first inc inside the macro moves the bc pointer from palette data to
+  ; tile data. This only works because the data is exactly one byte long. But this
+  ; is more or less secret knowledge and so this is fairly fragile.
+  MoveNextBCToHL
+  MoveNextBCToHL
   ld    de, TILES_PER_LINE - 2
   add   hl, de  ; Go one line down
-  ld    a, c
-  ld    [hli], a
-  inc   a
-  ld    [hli], a
-
+  MoveNextBCToHL
+  MoveNextBCToHL
 
   ret
+
+
+
 
 ;----------------------------------------------------
 ; init the palettes to basic
@@ -224,9 +232,9 @@ InitPalettes:
 	ret
 
 ;----------------------------------------------------
-; Store color palette
+; Write color palette to both bg and obj memory
 ;
-; IN: hl = address of palette
+; in: hl = address of palette
 ;     b  = palette number
 ;----------------------------------------------------
 WriteColorPalette:
@@ -255,11 +263,18 @@ WriteColorPalette:
   ld  a, e
   ld  [hl], a         ; send data
 
+  ld	hl, rOCPS	      ; also write object palette
+  ld  a, b
+  ld  [hli], a        ; set control register and move hl to data register
+  ld  a, e
+  ld  [hl], a         ; send data
+
   pop   hl
 
   inc   b     ; write next color on next iteration
 
-  ld    a, d  ; loop
+  ; loop handling
+  ld    a, d
   cp    7     ; did we write all color parts?
   jp    z, .end
   inc   d
@@ -272,52 +287,101 @@ WriteColorPalette:
 ;----------------------------------------------------
 ; Show a sprite at specific position
 ;
-; in: b = x coord
-;     c = y coord
-;     d = tile
-;     e = palette
+; in: b  = x coord
+;     c  = y coord
+;     hl = jelly address
 ;
-; TODO later in the game, a tile will always be displayed
-;      with the same color, so we should encode that 
-;      relationship somewhere.
 ;----------------------------------------------------
 
-ShowSprite:
+addM: MACRO
+  ld   a, \1
+  add  a, \2
+  ld   \1, a
+ENDM
 
-  ld  hl, _OAMRAM
+subM: MACRO
+  ld   a, \1
+  sub  a, \2
+  ld   \1, a
+ENDM
+
+
+ShowSprite:
+  ld    d, h   ; TODO create a macro to move hl to another reg
+  ld    e, l
+
+  ld    a, [de]    ; load color
+  ld    [var1], a
+  inc   de         ; move to tile data
+
+  ld    hl, _OAMRAM  ; TODO allow for an offset by index here
+  call  ShowSingleSprite
+  inc   de
+  addM  b, 8
+  call  ShowSingleSprite
+  inc   de
+  subM  b, 8
+  addM  c, 8
+  call  ShowSingleSprite
+  inc   de
+  addM  b, 8
+  call  ShowSingleSprite
+
+  ret
+
+
+ShowSingleSprite:
   ld  a, c
   ld  [hli], a ; y coord
 
   ld  a, b
   ld  [hli], a ; x coord
 
-  ld  a, d
+  ld  a, [de]
   ld  [hli], a ; tile
 
-  ld  a, e     ; Note: All other attributes except palette are 0 for now
-  ld  [hl], a  ; attributes
+  ld  a, [var1]
+  ld  [hli], a  ; attributes
 
   ret
+
 
 
 UpdateSpritePosition:
 
-  ld  hl, _OAMRAM
-  ld  a, [hl]
+  ld    hl, _OAMRAM
+  ld    a, [hl]
 
-  cp  $80
-  jp  nz, .update
+  cp    $80
+  jp    nz, .update
 
-  ld  a, 0  ; reset to 0
+  ld    a, 0  ; reset to 0
 
 .update
 
-  inc a
-  ld  [hli], a
-  ld  [hl], a
+  inc   a
+
+  ld    b, a
+  ld    c, a
+  call  WriteSpritePos
+  addM  b, 8
+  call  WriteSpritePos
+  subM  b, 8
+  addM  c, 8
+  call  WriteSpritePos
+  addM  b, 8
+  call  WriteSpritePos
 
   ret
 
+WriteSpritePos:
+  ld    a, c
+  ld    [hli], a    ; y coord
+  ld    a, b
+  ld    [hli], a    ; x coord
+  inc   hl
+  inc   hl
+  ret
 
 ;----------------------------------------------------
 ; Push and pop registers
@@ -363,23 +427,19 @@ VBlankHandler::
   ld    a, 0
   ld    [switch], a
 
-  ld    b, $03
-  ld    c, $07
+  ld    hl, activeJelly1
   ld    de, TILES_PER_LINE * $5 + $7
   call  LoadTileAtPosition
 
-  ld    b, $01
-  ld    c, $05
+  ld    hl, inactiveJelly1
   ld    de, TILES_PER_LINE * $5 + $A
   call  LoadTileAtPosition
 
-  ld    b, $03
-  ld    c, $07
+  ld    hl, activeJelly1
   ld    de, TILES_PER_LINE * $8 + $A
   call  LoadTileAtPosition
 
-  ld    b, $01
-  ld    c, $05
+  ld    hl, inactiveJelly1
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadTileAtPosition
 
@@ -390,23 +450,19 @@ VBlankHandler::
   ld    a, 1
   ld    [switch], a
 
-  ld    b, $01
-  ld    c, $05
+  ld    hl, inactiveJelly1
   ld    de, TILES_PER_LINE * $5 + $7
   call  LoadTileAtPosition
 
-  ld    b, $03
-  ld    c, $07
+  ld    hl, activeJelly1
   ld    de, TILES_PER_LINE * $5 + $A
   call  LoadTileAtPosition
 
-  ld    b, $01
-  ld    c, $05
+  ld    hl, inactiveJelly1
   ld    de, TILES_PER_LINE * $8 + $A
   call  LoadTileAtPosition
 
-  ld    b, $03
-  ld    c, $07
+  ld    hl, activeJelly1
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadTileAtPosition
 
@@ -428,18 +484,41 @@ VBlankHandler::
 ;----------------------------------------------------
 ; Graphics and Data
 ;----------------------------------------------------
-  SECTION "Tiles", HOME
+SECTION "Tiles", HOME
 
-  INCLUDE "graphics.inc"
+INCLUDE "graphics.inc"
 
 
-  SECTION "Palettes", HOME
+SECTION "Palettes", HOME
 
 palette1:
-dw $ffff
-dw $ffe7
-dw $3c82
-dw $0000
+dw  $ffff
+dw  $ffe7
+dw  $3c82
+dw  $0000
+
+
+
+
+; This section describes each graphic. First byte is the palette, next 4 bytes
+; are the relative tile addresses for the active frame (eyes open) and next 4
+; bytes again are the states for inactive frame
+
+SPR_DATA_LEN equ 5
+SPR_TILE_DATA_OFFSET equ 1
+
+
+SECTION "Graphics", HOME
+
+activeJelly1:
+db 1 ; palette
+db 1, 2, 5, 6
+
+
+inactiveJelly1:
+db 1 ; palette
+db 3, 4, 7, 8
+
 
 
 ;----------------------------------------------------
@@ -447,6 +526,9 @@ dw $0000
 ;----------------------------------------------------
 
 SECTION	"RAM_Other_Variables",BSS[$C000]
+
+var1:
+ds    1
 
 ; frame timing
 vblank_flag:
@@ -457,4 +539,6 @@ ds    1
 
 switch:
 ds    1
+
+
 
