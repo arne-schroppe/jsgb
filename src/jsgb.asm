@@ -7,7 +7,7 @@ INCLUDE	"lib/hardware.inc"
 ;****************************************************************************************************************************************************
 
 ; $ff80 to $fffe is 128 bytes of internal RAM
-STACK_TOP				equ		$fff4		; put the stack here
+STACK_TOP				equ		$fffe		; put the stack here
 
 
 TILES_PER_LINE  equ  $20
@@ -21,7 +21,7 @@ ANIMATION_CYCLE equ $20
 	SECTION "Program Start",HOME[$0150]
 Start::
 	; init the stack pointer
-	ld		sp, $FFFE
+	ld		sp, STACK_TOP
 
 	; enable only vblank interrupts
 	ld		a, IEF_VBLANK			; set vblank interrupt bit
@@ -56,7 +56,7 @@ Start::
 
   ld    b, $20
   ld    c, $20
-  ld    hl, activeJelly1
+  ld    hl, active_jelly_1
   call  ShowSprite
 
 
@@ -219,7 +219,7 @@ LoadTileAtPosition:
 
 
 ;----------------------------------------------------
-; init the palettes to basic
+; init DMG palettes to basic
 ;----------------------------------------------------
 InitPalettes:
 	ld		a, %11100100	; set palette colors
@@ -232,7 +232,7 @@ InitPalettes:
 	ret
 
 ;----------------------------------------------------
-; Write color palette to both bg and obj memory
+; Write CGB palette to both bg and obj memory
 ;
 ; in: hl = address of palette
 ;     b  = palette number
@@ -242,7 +242,7 @@ WriteColorPalette:
   ; set up b for control register (palette number starts at bit 3)
   ld    a, b
   and   7
-  sla   a
+  sla   a    ; move palette number to bit 3 by left-shifting 3 times
   sla   a
   sla   a
   ld    b, a
@@ -293,13 +293,13 @@ WriteColorPalette:
 ;
 ;----------------------------------------------------
 
-addM: MACRO
+AddM: MACRO
   ld   a, \1
   add  a, \2
   ld   \1, a
 ENDM
 
-subM: MACRO
+SubM: MACRO
   ld   a, \1
   sub  a, \2
   ld   \1, a
@@ -317,14 +317,14 @@ ShowSprite:
   ld    hl, _OAMRAM  ; TODO allow for an offset by index here
   call  ShowSingleSprite
   inc   de
-  addM  b, 8
+  AddM  b, 8
   call  ShowSingleSprite
   inc   de
-  subM  b, 8
-  addM  c, 8
+  SubM  b, 8
+  AddM  c, 8
   call  ShowSingleSprite
   inc   de
-  addM  b, 8
+  AddM  b, 8
   call  ShowSingleSprite
 
   ret
@@ -364,12 +364,12 @@ UpdateSpritePosition:
   ld    b, a
   ld    c, a
   call  WriteSpritePos
-  addM  b, 8
+  AddM  b, 8
   call  WriteSpritePos
-  subM  b, 8
-  addM  c, 8
+  SubM  b, 8
+  AddM  c, 8
   call  WriteSpritePos
-  addM  b, 8
+  AddM  b, 8
   call  WriteSpritePos
 
   ret
@@ -427,19 +427,19 @@ VBlankHandler::
   ld    a, 0
   ld    [switch], a
 
-  ld    hl, activeJelly1
+  ld    hl, active_jelly_1
   ld    de, TILES_PER_LINE * $5 + $7
   call  LoadTileAtPosition
 
-  ld    hl, inactiveJelly1
+  ld    hl, inactive_jelly_1
   ld    de, TILES_PER_LINE * $5 + $A
   call  LoadTileAtPosition
 
-  ld    hl, activeJelly1
+  ld    hl, active_jelly_1
   ld    de, TILES_PER_LINE * $8 + $A
   call  LoadTileAtPosition
 
-  ld    hl, inactiveJelly1
+  ld    hl, inactive_jelly_1
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadTileAtPosition
 
@@ -450,19 +450,19 @@ VBlankHandler::
   ld    a, 1
   ld    [switch], a
 
-  ld    hl, inactiveJelly1
+  ld    hl, inactive_jelly_1
   ld    de, TILES_PER_LINE * $5 + $7
   call  LoadTileAtPosition
 
-  ld    hl, activeJelly1
+  ld    hl, active_jelly_1
   ld    de, TILES_PER_LINE * $5 + $A
   call  LoadTileAtPosition
 
-  ld    hl, inactiveJelly1
+  ld    hl, inactive_jelly_1
   ld    de, TILES_PER_LINE * $8 + $A
   call  LoadTileAtPosition
 
-  ld    hl, activeJelly1
+  ld    hl, active_jelly_1
   ld    de, TILES_PER_LINE * $8 + $7
   call  LoadTileAtPosition
 
@@ -510,12 +510,12 @@ SPR_TILE_DATA_OFFSET equ 1
 
 SECTION "Graphics", HOME
 
-activeJelly1:
+active_jelly_1:
 db 1 ; palette
 db 1, 2, 5, 6
 
 
-inactiveJelly1:
+inactive_jelly_1:
 db 1 ; palette
 db 3, 4, 7, 8
 
