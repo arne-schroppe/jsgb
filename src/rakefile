@@ -23,7 +23,7 @@ end
 
 desc "Deploy compiled file to flash card using ems-flasher"
 task :deploy => :compile do
-  sh "ems-flasher --write GAME_FILE_NAME"
+  sh "ems-flasher --write #{GAME_FILE_NAME}"
 end
 
 # Set up 'clean' task
