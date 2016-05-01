@@ -13,6 +13,10 @@ STACK_TOP				equ		$fffe		; put the stack here
 TILES_PER_LINE  equ  $20
 ANIMATION_CYCLE equ  $20
 
+GRID_WIDTH   equ 5
+GRID_HEIGHT  equ 4
+
+
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
@@ -48,12 +52,17 @@ Start::
   ld    b, $1
   call  WriteColorPalette
 
+  ld    hl, palette2
+  ld    b, $2
+  call  WriteColorPalette
+
+
 	; load the tiles
 	ld		bc, jellysplash_tile_data
 	call	LoadTiles
-
   call  ClearMap
 
+  ; load sprite
   ld    b, $20
   ld    c, $20
   ld    hl, active_jelly_1
@@ -65,6 +74,11 @@ Start::
   ld    [cursor_y], a
   ld    a, 0
   ld    [cursor_state], a
+
+
+  ; load level
+  ld    hl, level_1
+  call  LoadLevel
 
 	; set display options
 	ld		a, LCDCF_ON + LCDCF_BGON + LCDCF_WINOFF + LCDCF_OBJON + LCDCF_OBJ8 + LCDCF_BG8000 + LCDCF_BG9800 + LCDCF_WIN9C00
@@ -445,6 +459,111 @@ WriteSpritePos:
   ret
 
 ;----------------------------------------------------
+; Load level to ram
+;
+; in
+;    hl = level address
+;----------------------------------------------------
+
+LoadLevel:
+
+  ld   de, grid
+
+  ld   b, 0
+  ld   c, GRID_WIDTH * GRID_HEIGHT
+
+.loop
+  ld   a, [hl]
+  ld   [de], a
+
+  inc  de
+  inc  hl
+
+  inc  b
+  ld   a, c
+  cp   b
+  jp   nz, .loop
+
+  ret
+
+
+
+;----------------------------------------------------
+; Show grd
+;
+;----------------------------------------------------
+
+
+ShowGrid:
+
+  ld    hl, grid
+
+  ld    b, 0   ; x
+  ld    c, 0   ; y
+
+  ld    de, TILES_PER_LINE * 5 + 2
+
+
+.loop_height
+  ld    b, 0
+
+.loop_width
+
+  inc   de
+  inc   de
+
+  ld    a, [hli]
+  push  hl
+  push  de
+  push  bc
+
+  cp    1
+  jp    z, .show_1
+  cp    2
+  jp    z, .show_2
+  jp    .next
+
+
+.show_1
+  ld    hl, inactive_jelly_1
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_2
+  ld    hl, inactive_jelly_2
+  call  LoadTileAtPosition
+
+.next
+  pop   bc
+  pop   de
+  pop   hl
+
+  ; next b
+  inc  b
+  ld   a, b
+  cp   GRID_WIDTH
+  jp   nz, .loop_width
+
+  ; move de to next row
+  push hl
+  ld   h, d
+  ld   l, e
+  ld   de, TILES_PER_LINE + (TILES_PER_LINE - GRID_WIDTH * 2)
+  add  hl, de
+  ld   d, h
+  ld   e, l
+  pop  hl
+
+  ; next c
+  inc  c
+  ld   a, c
+  cp   GRID_HEIGHT
+  jp   nz, .loop_height
+
+.end
+  ret
+
+;----------------------------------------------------
 ; Push and pop registers
 ;----------------------------------------------------
 PushRegs: MACRO
@@ -470,68 +589,7 @@ VBlankHandler::
 
   call  UpdateCursorSpritePosition
 
-
-  ld    a, [switch_timer]
-  dec   a
-  ld    [switch_timer], a
-
-  jr    z, .switch_tiles
-  jp    .end
-
-.switch_tiles
-  ld   a, [switch]
-  cp   0
-  jr   z, .switch_to_1
-
-
-.switch_to_0
-  ld    a, 0
-  ld    [switch], a
-
-  ld    hl, active_jelly_1
-  ld    de, TILES_PER_LINE * $5 + $7
-  call  LoadTileAtPosition
-
-  ld    hl, inactive_jelly_1
-  ld    de, TILES_PER_LINE * $5 + $A
-  call  LoadTileAtPosition
-
-  ld    hl, active_jelly_1
-  ld    de, TILES_PER_LINE * $8 + $A
-  call  LoadTileAtPosition
-
-  ld    hl, inactive_jelly_1
-  ld    de, TILES_PER_LINE * $8 + $7
-  call  LoadTileAtPosition
-
-  jr    .reset_switch_timer
-
-
-.switch_to_1
-  ld    a, 1
-  ld    [switch], a
-
-  ld    hl, inactive_jelly_1
-  ld    de, TILES_PER_LINE * $5 + $7
-  call  LoadTileAtPosition
-
-  ld    hl, active_jelly_1
-  ld    de, TILES_PER_LINE * $5 + $A
-  call  LoadTileAtPosition
-
-  ld    hl, inactive_jelly_1
-  ld    de, TILES_PER_LINE * $8 + $A
-  call  LoadTileAtPosition
-
-  ld    hl, active_jelly_1
-  ld    de, TILES_PER_LINE * $8 + $7
-  call  LoadTileAtPosition
-
-
-.reset_switch_timer
-  ld    a, ANIMATION_CYCLE
-  ld    [switch_timer], a
-
+  call  ShowGrid
 
 .end
 	ld		a, 1
@@ -558,6 +616,11 @@ dw  $ffe7
 dw  $3c82
 dw  $0000
 
+palette2:
+dw  $ffff
+dw  $e7ff
+dw  $823c
+dw  $1234
 
 
 
@@ -575,11 +638,28 @@ active_jelly_1:
 db 1 ; palette
 db 1, 2, 5, 6
 
-
 inactive_jelly_1:
 db 1 ; palette
 db 3, 4, 7, 8
 
+
+active_jelly_2:
+db 2 ; palette
+db 1, 2, 5, 6
+
+inactive_jelly_2:
+db 2 ; palette
+db 3, 4, 7, 8
+
+
+
+SECTION "Levels", HOME
+
+level_1:
+db 0, 1, 2, 1, 0
+db 1, 2, 1, 2, 1
+db 1, 2, 1, 2, 1
+db 0, 1, 2, 1, 0
 
 
 ;----------------------------------------------------
@@ -612,5 +692,8 @@ ds    1
 switch:
 ds    1
 
+
+grid:
+ds    3 * 2
 
 
