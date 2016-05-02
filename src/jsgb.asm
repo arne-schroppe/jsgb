@@ -65,7 +65,7 @@ Start::
   ; load sprite
   ld    b, $20
   ld    c, $20
-  ld    hl, active_jelly_1
+  ld    hl, cursor_sprite
   call  ShowSprite
 
   ; Init cursor
@@ -651,6 +651,9 @@ inactive_jelly_2:
 db 2 ; palette
 db 3, 4, 7, 8
 
+cursor_sprite:
+db 1 ; palette
+db 9, 10, 11, 12
 
 
 SECTION "Levels", HOME
