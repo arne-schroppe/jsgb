@@ -47,7 +47,7 @@ Start::
 	ld		[vblank_flag], a
 
   ld    a, 1
-  ld    [tiles_changed], a
+  ld    [grid_changed], a
 
 	; init the palettes
 	call	InitPalettes  ; non-color palette
@@ -300,7 +300,7 @@ ProcessInput:
   ld   [hl], a
 
   ld   a, 1
-  ld   [tiles_changed], a
+  ld   [grid_changed], a
 
   jp   .end
 
@@ -333,7 +333,7 @@ LoadTiles:
 	ld		e, 12  ; number of tiles to load
 
 .loop
-  WaitBusy
+  ; WaitBusy
 	ld		a, [bc]		; get the next value from the source
 	ld	  [hli], a	; load the value to the destination, incrementing dest. ptr
 	inc		bc			; increment the source ptr
@@ -358,7 +358,7 @@ ClearMap:
   ld    e, $20
 
 .loop
-  WaitBusy
+  ; WaitBusy
 
   ld    a, 0
   ld    [hli], a
@@ -380,6 +380,7 @@ ClearMap:
 ;     de = tile pos
 ;----------------------------------------------------
 MoveNextBCToHL: MACRO
+  WaitBusy
   inc   bc
   ld    a, [bc]
   ld    [hli], a
@@ -392,14 +393,13 @@ LoadTileAtPosition:
 	ld		hl, _SCRN0	; load the map to map bank 0
   add   hl, de  ; move to tile position
 
-  WaitBusy
-
   push  hl
 
   ; set palette
   ld    a, 1        ; switch to VRAM bank 1
   ldh   [rVBK], a
 
+  WaitBusy
   ld    a, [bc]   ; load palette
   ld    [hli], a  ; set color for upper left
   ld    [hli], a  ; upper right
@@ -408,9 +408,9 @@ LoadTileAtPosition:
   ld    [hli], a  ; set color for lower left
   ld    [hl], a   ; lower right
 
+  WaitBusy
   ld    a, 0      ; switch back to VRAM bank 0
   ldh   [rVBK], a
-
 
   pop   hl   ; go back to start position
 
@@ -528,7 +528,7 @@ ShowSprite:
   ld    [var1], a
   inc   de         ; move to tile data
 
-  WaitBusy
+  ; WaitBusy
 
   ld    hl, _OAMRAM  ; TODO allow for an offset by index here
   call  ShowSingleSprite
@@ -569,7 +569,6 @@ ShowSingleSprite:
 ;----------------------------------------------------
 UpdateCursorSpritePosition:
 
-  WaitBusy
 
   ld    a, [cursor_x]
   add   a, GRID_START_X
@@ -604,6 +603,7 @@ UpdateCursorSpritePosition:
   ret
 
 WriteSpritePos:
+  WaitBusy
   ld    a, c
   ld    [hli], a    ; y coord
   ld    a, b
@@ -652,21 +652,14 @@ ACTIVE_MASK equ %10000000
 ShowGrid:
 
   ld    hl, grid
-
-  ld    b, 0   ; x
-  ld    c, 0   ; y
-
   ld    de, TILES_PER_LINE * (GRID_START_Y * 2) + (GRID_START_X * 2)
 
+  ld    c, 0   ; y
 
 .loop_height
-  ld    b, 0
+  ld    b, 0   ; x
 
 .loop_width
-
-  WaitBusy
-
-
   ld    a, [hli]
   push  hl
   push  de
@@ -759,17 +752,19 @@ ENDM
 ; V-Blank interrupt handler
 ;----------------------------------------------------
 VBlankHandler::
+  di
   PushRegs
 
   call  UpdateCursorSpritePosition
 
-  ld    a, [tiles_changed]
+  ; was the grid changed?
+  ld    a, [grid_changed]
   cp    1
   jp    nz, .end
 
   call  ShowGrid
   ld    a, 0
-  ld    [tiles_changed], a
+  ld    [grid_changed], a
 
 .end
 	ld		a, 1
@@ -854,7 +849,7 @@ SECTION	"RAM_Other_Variables",BSS[$C000]
 var1:
 ds 1
 
-tiles_changed:
+grid_changed:
 ds 1
 
 
