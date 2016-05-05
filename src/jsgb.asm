@@ -46,6 +46,9 @@ Start::
   ld    [input_diff], a
 	ld		[vblank_flag], a
 
+  ld    a, 1
+  ld    [tiles_changed], a
+
 	; init the palettes
 	call	InitPalettes  ; non-color palette
 
@@ -295,6 +298,9 @@ ProcessInput:
 
 .update_jelly
   ld   [hl], a
+
+  ld   a, 1
+  ld   [tiles_changed], a
 
   jp   .end
 
@@ -756,7 +762,14 @@ VBlankHandler::
   PushRegs
 
   call  UpdateCursorSpritePosition
+
+  ld    a, [tiles_changed]
+  cp    1
+  jp    nz, .end
+
   call  ShowGrid
+  ld    a, 0
+  ld    [tiles_changed], a
 
 .end
 	ld		a, 1
@@ -839,7 +852,10 @@ db 1, 1, 2, 1, 1, 2, 0, 2
 SECTION	"RAM_Other_Variables",BSS[$C000]
 
 var1:
-ds    1
+ds 1
+
+tiles_changed:
+ds 1
 
 
 cursor_x:
