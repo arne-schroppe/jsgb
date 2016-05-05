@@ -37,13 +37,9 @@ Start::
 	ldh		[rLCDC], a	; init LCD to everything off
 	ldh		[rSCX], a	; background map will start at 0,0
 	ldh		[rSCY], a
-
-	sub		a
+  ld    [input], a
+  ld    [prev_input], a
 	ld		[vblank_flag], a
-
-  ld    [switch], a
-  ld    a, ANIMATION_CYCLE
-  ld    [switch_timer], a
 
 	; init the palettes
 	call	InitPalettes  ; non-color palette
@@ -69,7 +65,7 @@ Start::
   call  ShowSprite
 
   ; Init cursor
-  ld    a, 20
+  ld    a, $28
   ld    [cursor_x], a
   ld    [cursor_y], a
   ld    a, 0
@@ -95,6 +91,7 @@ Start::
 	cp		0
 	jp		z, .end
 
+  call  UpdateInput
   call  UpdateCursor
 
 	; reset vblank flag
@@ -114,18 +111,27 @@ Start::
 	SECTION "Support Routines",HOME
 
 INP_SELECT_DIR equ %00100000
+INP_SELECT_BTN equ %00010000
+INPUT_MASK     equ %00001111
 
-INP_BIT_DOWN_OR_START equ 3
-INP_BIT_UP_OR_SELECT  equ 2
-INP_BIT_LEFT_OR_B     equ 1
-INP_BIT_RIGHT_OR_A    equ 0
+INP_BIT_DOWN   equ 7
+INP_BIT_UP     equ 6
+INP_BIT_LEFT   equ 5
+INP_BIT_RIGHT  equ 4
+INP_BIT_START  equ 3
+INP_BIT_SELECT equ 2
+INP_BIT_B      equ 1
+INP_BIT_A      equ 0
 
-CURSOR_STEP_SIZE equ 1
+UpdateInput:
 
-UpdateCursor:
+  ld   a, [input]
+  ld   [prev_input], a
 
   ; select what type of data we want to read
   ld   a, INP_SELECT_DIR
+  ld   b, 0
+
   ld   [rP1], a
 
   ; read state of directional pad (several times because of button bounce)
@@ -135,39 +141,78 @@ UpdateCursor:
   ld   a, [rP1]
 
   cpl  ; if a button is pressed the bit is 0, so we invert it
-
+  and  INPUT_MASK
+  swap a
   ld   b, a
 
-.read_up
-  bit  INP_BIT_UP_OR_SELECT, b
-  jp   z, .read_down
+  ; read buttons
+  ld   a, INP_SELECT_BTN
+
+  ld   [rP1], a
+
+  ; read state of directional pad (several times because of button bounce)
+  ld   a, [rP1]
+  ld   a, [rP1]
+  ld   a, [rP1]
+  ld   a, [rP1]
+
+  cpl  ; if a button is pressed the bit is 0, so we invert it
+  and  INPUT_MASK
+  or   b  ; combine with directional input in high nibble
+  ld   b, a  ; add back to b
+
+  ; write to input
+  ld   [input], a
+
+  ; reset joypad (not sure why this is needed)
+  ld   a, $30
+  ld   [rP1], a
+
+.end
+  ret
+
+
+
+UpdateCursor:
+
+; get changes in input
+  ld   a, [input]
+  ld   b, a
+  ld   a, [prev_input]
+  cpl
+  and  b
+  ld   b, a
+
+.up
+  bit  INP_BIT_UP, b
+  jp   z, .down
 
   ld   a, [cursor_y]
-  sub  a, CURSOR_STEP_SIZE
+  add  a, (TILES_PER_LINE - 2) * 8
   ld   [cursor_y], a
 
-.read_down
-  bit  INP_BIT_DOWN_OR_START, b
-  jp   z, .read_left
+.down
+  bit  INP_BIT_DOWN, b
+  jp   z, .left
 
   ld   a, [cursor_y]
-  add  a, CURSOR_STEP_SIZE
+  sub  a, (TILES_PER_LINE - 2) * 8
   ld   [cursor_y], a
 
-.read_left
-  bit  INP_BIT_LEFT_OR_B, b
-  jp   z, .read_right
+.left
+  bit  INP_BIT_LEFT, b
+  jp   z, .right
 
   ld   a, [cursor_x]
-  sub  a, CURSOR_STEP_SIZE
+  sub  a, 2 * 8
   ld   [cursor_x], a
 
-.read_right
-  bit  INP_BIT_RIGHT_OR_A, b
+.right
+  bit  INP_BIT_RIGHT, b
   jp   z, .end
 
   ld   a, [cursor_x]
-  add  a, CURSOR_STEP_SIZE
+  add  a, 2 * 8
   ld   [cursor_x], a
 
 .end
@@ -428,6 +473,10 @@ ShowSingleSprite:
 
 
 
+;----------------------------------------------------
+; Update position of cursor
+;
+;----------------------------------------------------
 UpdateCursorSpritePosition:
 
   WaitBusy
@@ -493,7 +542,6 @@ LoadLevel:
 ;
 ;----------------------------------------------------
 
-
 ShowGrid:
 
   ld    hl, grid
@@ -508,6 +556,8 @@ ShowGrid:
   ld    b, 0
 
 .loop_width
+
+  WaitBusy
 
   inc   de
   inc   de
@@ -685,16 +735,16 @@ cursor_state:
 ds 1
 
 
+input:
+ds 1
+
+prev_input:
+ds 1
+
+
 ; frame timing
 vblank_flag:
 ds		1		; set if a vblank occured since last pass through game loop
-
-switch_timer:
-ds    1
-
-switch:
-ds    1
-
 
 grid:
 ds    3 * 2
