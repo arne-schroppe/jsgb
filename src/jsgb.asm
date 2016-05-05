@@ -65,7 +65,7 @@ Start::
   call  ShowSprite
 
   ; Init cursor
-  ld    a, $28
+  ld    a, 1
   ld    [cursor_x], a
   ld    [cursor_y], a
   ld    a, 0
@@ -92,7 +92,7 @@ Start::
 	jp		z, .end
 
   call  UpdateInput
-  call  UpdateCursor
+  call  UpdateCursorPosition
 
 	; reset vblank flag
 	ld		a, 0
@@ -123,6 +123,13 @@ INP_BIT_SELECT equ 2
 INP_BIT_B      equ 1
 INP_BIT_A      equ 0
 
+;----------------------------------------------------
+; Update input
+;
+; updates:
+;    [input]
+;    [prev_input]
+;----------------------------------------------------
 UpdateInput:
 
   ld   a, [input]
@@ -173,7 +180,14 @@ UpdateInput:
 
 
 
-UpdateCursor:
+;----------------------------------------------------
+; Update cursor
+;
+; updates:
+;    [cursor_x]
+;    [cursor_y]
+;----------------------------------------------------
+UpdateCursorPosition:
 
 ; get changes in input
   ld   a, [input]
@@ -188,7 +202,7 @@ UpdateCursor:
   jp   z, .down
 
   ld   a, [cursor_y]
-  add  a, (TILES_PER_LINE - 2) * 8
+  add  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
 
 .down
@@ -196,7 +210,7 @@ UpdateCursor:
   jp   z, .left
 
   ld   a, [cursor_y]
-  sub  a, (TILES_PER_LINE - 2) * 8
+  sub  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
 
 .left
@@ -204,7 +218,7 @@ UpdateCursor:
   jp   z, .right
 
   ld   a, [cursor_x]
-  sub  a, 2 * 8
+  sub  a, 1
   ld   [cursor_x], a
 
 .right
@@ -212,7 +226,7 @@ UpdateCursor:
   jp   z, .end
 
   ld   a, [cursor_x]
-  add  a, 2 * 8
+  add  a, 1
   ld   [cursor_x], a
 
 .end
@@ -482,8 +496,21 @@ UpdateCursorSpritePosition:
   WaitBusy
 
   ld    a, [cursor_x]
+
+  ; Multiply by 16
+  sla   a
+  sla   a
+  sla   a
+  sla   a
+  add   a, 8
   ld    b, a
+
   ld    a, [cursor_y]
+  sla   a
+  sla   a
+  sla   a
+  sla   a
+  add   a, 8
   ld    c, a
 
   ld    hl, _OAMRAM
