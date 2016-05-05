@@ -259,19 +259,41 @@ UpdateCursorPosition:
 
 
 ProcessInput:
-  ld   a, [input]
+  ld   a, [input_diff]
   ld   b, a
 
-
   ld   hl, grid
-  ld   a, 1
-  ld   [hl], a
 
 .button_a
   bit  INP_BIT_A, b
   jp   z, .end
 
-  ld   a, 2
+  ; highlight jelly at current position
+  ld   a, [cursor_y]
+  sla  a  ; multiply by 8, our grid width
+  sla  a
+  sla  a
+  ld   e, a
+
+  ld   a, [cursor_x]
+  add  a, e
+  ld   e, a
+  ld   d, 0
+
+  add  hl, de
+
+  ld   a, [hl]
+
+  bit  7, a
+  jp   nz, .reset_jelly
+
+  set  7, a
+  jp   .update_jelly
+
+.reset_jelly
+  res  7, a
+
+.update_jelly
   ld   [hl], a
 
   jp   .end
