@@ -17,6 +17,10 @@ GRID_WIDTH   equ 5
 GRID_HEIGHT  equ 4
 
 
+GRID_START_X  equ 2
+GRID_START_Y  equ 2
+
+
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
@@ -60,13 +64,13 @@ Start::
   call  ClearMap
 
   ; load sprite
-  ld    b, $20
-  ld    c, $20
+  ld    b, 0
+  ld    c, 0
   ld    hl, cursor_sprite
   call  ShowSprite
 
   ; Init cursor
-  ld    a, 1
+  ld    a, 0
   ld    [cursor_x], a
   ld    [cursor_y], a
   ld    a, 0
@@ -207,7 +211,7 @@ UpdateCursorPosition:
   ld   a, [cursor_y]
   add  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
-  jp   .end
+  ; intentional fall-through
 
 .down
   bit  INP_BIT_DOWN, b
@@ -216,7 +220,7 @@ UpdateCursorPosition:
   ld   a, [cursor_y]
   sub  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
-  jp   .end
+  ; intentional fall-through
 
 .left
   bit  INP_BIT_LEFT, b
@@ -225,7 +229,7 @@ UpdateCursorPosition:
   ld   a, [cursor_x]
   sub  a, 1
   ld   [cursor_x], a
-  jp   .end
+  ; intentional fall-through
 
 .right
   bit  INP_BIT_RIGHT, b
@@ -234,7 +238,7 @@ UpdateCursorPosition:
   ld   a, [cursor_x]
   add  a, 1
   ld   [cursor_x], a
-  jp   .end
+  ; intentional fall-through
 
 .end
   ret
@@ -528,6 +532,7 @@ UpdateCursorSpritePosition:
   WaitBusy
 
   ld    a, [cursor_x]
+  add   a, GRID_START_X
 
   ; Multiply by 16
   sla   a
@@ -538,11 +543,12 @@ UpdateCursorSpritePosition:
   ld    b, a
 
   ld    a, [cursor_y]
+  add   a, GRID_START_Y
   sla   a
   sla   a
   sla   a
   sla   a
-  add   a, 8
+  add   a, 16
   ld    c, a
 
   ld    hl, _OAMRAM
@@ -601,6 +607,8 @@ LoadLevel:
 ;
 ;----------------------------------------------------
 
+ACTIVE_MASK equ %10000000
+
 ShowGrid:
 
   ld    hl, grid
@@ -608,7 +616,7 @@ ShowGrid:
   ld    b, 0   ; x
   ld    c, 0   ; y
 
-  ld    de, TILES_PER_LINE * 5 + 2
+  ld    de, TILES_PER_LINE * (GRID_START_Y * 2) + (GRID_START_X * 2)
 
 
 .loop_height
@@ -618,8 +626,6 @@ ShowGrid:
 
   WaitBusy
 
-  inc   de
-  inc   de
 
   ld    a, [hli]
   push  hl
@@ -628,8 +634,12 @@ ShowGrid:
 
   cp    1
   jp    z, .show_1
+  cp    1 + ACTIVE_MASK
+  jp    z, .show_1_active
   cp    2
   jp    z, .show_2
+  cp    2 + ACTIVE_MASK
+  jp    z, .show_2_active
   jp    .next
 
 
@@ -641,11 +651,26 @@ ShowGrid:
 .show_2
   ld    hl, inactive_jelly_2
   call  LoadTileAtPosition
+  jp    .next
+
+.show_1_active
+  ld    hl, active_jelly_1
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_2_active
+  ld    hl, active_jelly_2
+  call  LoadTileAtPosition
+  jp    .next
+
 
 .next
   pop   bc
   pop   de
   pop   hl
+
+  inc   de
+  inc   de
 
   ; next b
   inc  b
@@ -768,10 +793,10 @@ db 9, 10, 11, 12
 SECTION "Levels", HOME
 
 level_1:
-db 0, 1, 2, 1, 0
-db 1, 2, 1, 2, 1
-db 1, 2, 1, 2, 1
-db 0, 1, 2, 1, 0
+db 2, 1, 2, 1, 2
+db 1, 2, 0, 2, 1
+db 1, 2, 0, 2, 1
+db 1, 1, 2, 1, 1
 
 
 ;----------------------------------------------------
