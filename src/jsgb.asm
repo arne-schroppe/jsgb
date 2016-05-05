@@ -13,11 +13,11 @@ STACK_TOP				equ		$fffe		; put the stack here
 TILES_PER_LINE  equ  $20
 ANIMATION_CYCLE equ  $20
 
-GRID_WIDTH   equ 5
+GRID_WIDTH   equ 8
 GRID_HEIGHT  equ 4
 
 
-GRID_START_X  equ 2
+GRID_START_X  equ 1
 GRID_START_Y  equ 2
 
 
@@ -209,7 +209,10 @@ UpdateCursorPosition:
   jp   z, .down
 
   ld   a, [cursor_y]
-  add  a, TILES_PER_LINE / 2 - 1
+  cp   0
+  jp   z, .down
+
+  sub  a, 1
   ld   [cursor_y], a
   ; intentional fall-through
 
@@ -218,7 +221,10 @@ UpdateCursorPosition:
   jp   z, .left
 
   ld   a, [cursor_y]
-  sub  a, TILES_PER_LINE / 2 - 1
+  cp   GRID_HEIGHT - 1
+  jp   z, .left
+
+  add  a, 1
   ld   [cursor_y], a
   ; intentional fall-through
 
@@ -227,6 +233,9 @@ UpdateCursorPosition:
   jp   z, .right
 
   ld   a, [cursor_x]
+  cp   0
+  jp   z, .right
+
   sub  a, 1
   ld   [cursor_x], a
   ; intentional fall-through
@@ -236,6 +245,9 @@ UpdateCursorPosition:
   jp   z, .end
 
   ld   a, [cursor_x]
+  cp   GRID_WIDTH - 1
+  jp   z, .end
+
   add  a, 1
   ld   [cursor_x], a
   ; intentional fall-through
@@ -722,7 +734,6 @@ VBlankHandler::
   PushRegs
 
   call  UpdateCursorSpritePosition
-
   call  ShowGrid
 
 .end
@@ -793,10 +804,10 @@ db 9, 10, 11, 12
 SECTION "Levels", HOME
 
 level_1:
-db 2, 1, 2, 1, 2
-db 1, 2, 0, 2, 1
-db 1, 2, 0, 2, 1
-db 1, 1, 2, 1, 1
+db 2, 1, 2, 1, 2, 1, 1, 1
+db 1, 2, 0, 2, 1, 2, 2, 2
+db 1, 2, 0, 2, 1, 1, 0, 1
+db 1, 1, 2, 1, 1, 2, 0, 2
 
 
 ;----------------------------------------------------
