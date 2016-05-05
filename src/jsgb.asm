@@ -39,6 +39,7 @@ Start::
 	ldh		[rSCY], a
   ld    [input], a
   ld    [prev_input], a
+  ld    [input_diff], a
 	ld		[vblank_flag], a
 
 	; init the palettes
@@ -93,6 +94,7 @@ Start::
 
   call  UpdateInput
   call  UpdateCursorPosition
+  call  ProcessInput
 
 	; reset vblank flag
 	ld		a, 0
@@ -171,6 +173,12 @@ UpdateInput:
   ; write to input
   ld   [input], a
 
+  ; get changes in input
+  ld   a, [prev_input]
+  cpl
+  and  b
+  ld   [input_diff], a
+
   ; reset joypad (not sure why this is needed)
   ld   a, $30
   ld   [rP1], a
@@ -189,12 +197,7 @@ UpdateInput:
 ;----------------------------------------------------
 UpdateCursorPosition:
 
-; get changes in input
-  ld   a, [input]
-  ld   b, a
-  ld   a, [prev_input]
-  cpl
-  and  b
+  ld   a, [input_diff]
   ld   b, a
 
 .up
@@ -204,6 +207,7 @@ UpdateCursorPosition:
   ld   a, [cursor_y]
   add  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
+  jp   .end
 
 .down
   bit  INP_BIT_DOWN, b
@@ -212,6 +216,7 @@ UpdateCursorPosition:
   ld   a, [cursor_y]
   sub  a, TILES_PER_LINE / 2 - 1
   ld   [cursor_y], a
+  jp   .end
 
 .left
   bit  INP_BIT_LEFT, b
@@ -220,6 +225,7 @@ UpdateCursorPosition:
   ld   a, [cursor_x]
   sub  a, 1
   ld   [cursor_x], a
+  jp   .end
 
 .right
   bit  INP_BIT_RIGHT, b
@@ -228,9 +234,35 @@ UpdateCursorPosition:
   ld   a, [cursor_x]
   add  a, 1
   ld   [cursor_x], a
+  jp   .end
 
 .end
   ret
+
+
+
+
+ProcessInput:
+  ld   a, [input]
+  ld   b, a
+
+
+  ld   hl, grid
+  ld   a, 1
+  ld   [hl], a
+
+.button_a
+  bit  INP_BIT_A, b
+  jp   z, .end
+
+  ld   a, 2
+  ld   [hl], a
+
+  jp   .end
+
+.end
+  ret
+
 
 ;----------------------------------------------------
 ; Wait while LCD is busy
@@ -766,6 +798,9 @@ input:
 ds 1
 
 prev_input:
+ds 1
+
+input_diff:
 ds 1
 
 
