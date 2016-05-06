@@ -221,8 +221,21 @@ UpdateInput:
 ;----------------------------------------------------
 ApplyInput:
 
+.process_up
+  ld   a, [input_up]
+  ld   b, a
+
+.button_a_up
+  bit  INP_BIT_A, b
+  jp   z, .process_down
+
+  call DeactivateAllJellies
+
+
+.process_down
   ld   a, [input_down]
   ld   b, a
+  ld   e, 0  ; did cursor move?
 
 .up
   bit  INP_BIT_UP, b
@@ -234,6 +247,7 @@ ApplyInput:
 
   sub  a, 1
   ld   [cursor_y], a
+  set  1, e
   ; intentional fall-through
 
 .down
@@ -246,6 +260,7 @@ ApplyInput:
 
   add  a, 1
   ld   [cursor_y], a
+  set  1, e
   ; intentional fall-through
 
 .left
@@ -258,6 +273,7 @@ ApplyInput:
 
   sub  a, 1
   ld   [cursor_x], a
+  set  1, e
   ; intentional fall-through
 
 .right
@@ -270,12 +286,39 @@ ApplyInput:
 
   add  a, 1
   ld   [cursor_x], a
+  set  1, e
   ; intentional fall-through
 
 .button_a
   bit  INP_BIT_A, b
+  jp   z, .process_held
+
+  push de
+  call SwitchJellyUnderCursor
+  pop  de
+
+
+
+.process_held
+  bit  1, e  ; only update if cursor moved
   jp   z, .end
 
+  ld   a, [input_held]
+  ld   b, a
+
+.process_a_held
+  bit  INP_BIT_A, b
+  jp   z, .end
+
+  call SwitchJellyUnderCursor
+
+
+.end
+  ret
+
+
+
+SwitchJellyUnderCursor:
   ld   hl, grid
 
   ; highlight jelly at current position
@@ -310,14 +353,30 @@ ApplyInput:
   ld   a, 1
   ld   [grid_changed], a
 
-  jp   .end
-
-
-.end
   ret
 
 
 
+DeactivateAllJellies:
+  ld   hl, grid
+
+  ld   e, 0
+  ld   c, GRID_WIDTH * GRID_HEIGHT
+
+.loop
+  ld   a, [hl]
+  res  ACTIVE_JELLY_BIT, a
+  ld   [hli], a
+
+  inc  e
+  ld   a, c
+  cp   e
+  jp   nz, .loop
+
+  ld   a, 1
+  ld   [grid_changed], a
+
+  ret
 
 
 
