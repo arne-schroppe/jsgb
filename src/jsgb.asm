@@ -221,6 +221,12 @@ UpdateInput:
 ;----------------------------------------------------
 ApplyInput:
 
+  ; store previous cursor values
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+
 .process_up
   ld   a, [input_up]
   ld   b, a
@@ -235,7 +241,6 @@ ApplyInput:
 .process_down
   ld   a, [input_down]
   ld   b, a
-  ld   e, 0  ; did cursor move?
 
 .up
   bit  INP_BIT_UP, b
@@ -247,7 +252,6 @@ ApplyInput:
 
   sub  a, 1
   ld   [cursor_y], a
-  set  1, e
   ; intentional fall-through
 
 .down
@@ -260,7 +264,6 @@ ApplyInput:
 
   add  a, 1
   ld   [cursor_y], a
-  set  1, e
   ; intentional fall-through
 
 .left
@@ -273,7 +276,6 @@ ApplyInput:
 
   sub  a, 1
   ld   [cursor_x], a
-  set  1, e
   ; intentional fall-through
 
 .right
@@ -286,23 +288,64 @@ ApplyInput:
 
   add  a, 1
   ld   [cursor_x], a
-  set  1, e
   ; intentional fall-through
 
 .button_a
   bit  INP_BIT_A, b
-  jp   z, .process_held
+  jp   z, .handle_cursor_moved
 
   push de
-  call SwitchJellyUnderCursor
+  push bc
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+  call SwitchJelly
+  pop  bc
   pop  de
 
 
 
-.process_held
-  bit  1, e  ; only update if cursor moved
-  jp   z, .end
+.handle_cursor_moved
 
+  ; compare cursor to original values to determine if the cursor moved
+  ld   a, [cursor_x]
+  cp   d
+  jp   nz, .cursor_did_move
+
+  ld   a, [cursor_y]
+  cp   e
+  jp   nz, .cursor_did_move
+
+  jp   .end
+
+.cursor_did_move
+
+  ; ## Check if we need to deactivate the jelly that is currently under the cursor
+
+  ; takes d and e as parameters, which is the previous grid position here
+  call GetGridPositionForXAndY
+  ld   a, [hl]
+  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
+  jp   z, .process_held  ; if not, go on
+
+  push de
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+  call GetGridPositionForXAndY
+  pop  de   ; reset d and e to old cursor position (we need it later)
+
+  ld   a, [hl]
+  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
+  jp   z, .process_held  ; if not, go on
+
+  ; deactivate the jelly under the previous cursor position
+  call SwitchJelly
+
+
+.process_held
   ld   a, [input_held]
   ld   b, a
 
@@ -310,7 +353,11 @@ ApplyInput:
   bit  INP_BIT_A, b
   jp   z, .end
 
-  call SwitchJellyUnderCursor
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+  call SwitchJelly
 
 
 .end
@@ -318,23 +365,16 @@ ApplyInput:
 
 
 
-SwitchJellyUnderCursor:
-  ld   hl, grid
+;----------------------------------------------------
+; in:
+;    d = x position
+;    e = y position
+;
+;----------------------------------------------------
+SwitchJelly:
 
   ; highlight jelly at current position
-  ld   a, [cursor_y]
-  sla  a  ; multiply by 8, our grid width
-  sla  a
-  sla  a
-  ld   e, a
-
-  ld   a, [cursor_x]
-  add  a, e
-  ld   e, a
-
-  ld   d, 0
-  add  hl, de
-
+  call GetGridPositionForXAndY
   ld   a, [hl]
 
   ; check if jelly is active or inactive
@@ -357,6 +397,9 @@ SwitchJellyUnderCursor:
 
 
 
+;----------------------------------------------------
+; Deactivate all jellies
+;----------------------------------------------------
 DeactivateAllJellies:
   ld   hl, grid
 
@@ -378,6 +421,32 @@ DeactivateAllJellies:
 
   ret
 
+
+
+;----------------------------------------------------
+; in:
+;    d = x position
+;    e = y position
+;
+; out:
+;    hl = grid cell
+;----------------------------------------------------
+GetGridPositionForXAndY:
+  ld   hl, grid
+
+  ld   a, e  ; load y
+  sla  a  ; multiply by 8, our grid width
+  sla  a
+  sla  a
+  ld   c, a
+
+  ld   a, d  ; load x
+  add  a, c
+  ld   c, a
+
+  ld   b, 0
+  add  hl, bc
+  ret
 
 
 ;----------------------------------------------------
