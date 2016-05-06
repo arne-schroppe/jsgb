@@ -20,6 +20,9 @@ GRID_HEIGHT  equ 4
 GRID_START_X  equ 1
 GRID_START_Y  equ 2
 
+ACTIVE_JELLY_MASK equ %10000000
+ACTIVE_JELLY_BIT  equ 7
+
 
 ;****************************************************************************************************************************************************
 ;*	Program Start
@@ -43,7 +46,9 @@ Start::
 	ldh		[rSCY], a
   ld    [input], a
   ld    [prev_input], a
-  ld    [input_diff], a
+  ld    [input_down], a
+  ld    [input_up], a
+  ld    [input_held], a
 	ld		[vblank_flag], a
 
   ld    a, 1
@@ -76,8 +81,6 @@ Start::
   ld    a, 0
   ld    [cursor_x], a
   ld    [cursor_y], a
-  ld    a, 0
-  ld    [cursor_state], a
 
 
   ; load level
@@ -100,8 +103,7 @@ Start::
 	jp		z, .end
 
   call  UpdateInput
-  call  UpdateCursorPosition
-  call  ProcessInput
+  call  ApplyInput
 
 	; reset vblank flag
 	ld		a, 0
@@ -184,7 +186,22 @@ UpdateInput:
   ld   a, [prev_input]
   cpl
   and  b
-  ld   [input_diff], a
+  ld   [input_down], a
+
+  ; get buttons being held down
+  ld   a, [input]
+  ld   b, a
+  ld   a, [prev_input]
+  and  b
+  ld   a, b
+  ld   [input_held], a
+
+  ld   a, [prev_input]
+  ld   b, a
+  ld   a, [input]
+  cpl
+  and  b
+  ld   [input_up], a
 
   ; reset joypad (not sure why this is needed)
   ld   a, $30
@@ -196,15 +213,15 @@ UpdateInput:
 
 
 ;----------------------------------------------------
-; Update cursor
+; Apply input
 ;
 ; updates:
 ;    [cursor_x]
 ;    [cursor_y]
 ;----------------------------------------------------
-UpdateCursorPosition:
+ApplyInput:
 
-  ld   a, [input_diff]
+  ld   a, [input_down]
   ld   b, a
 
 .up
@@ -245,31 +262,21 @@ UpdateCursorPosition:
 
 .right
   bit  INP_BIT_RIGHT, b
-  jp   z, .end
+  jp   z, .button_a
 
   ld   a, [cursor_x]
   cp   GRID_WIDTH - 1
-  jp   z, .end
+  jp   z, .button_a
 
   add  a, 1
   ld   [cursor_x], a
   ; intentional fall-through
 
-.end
-  ret
-
-
-
-
-ProcessInput:
-  ld   a, [input_diff]
-  ld   b, a
-
-  ld   hl, grid
-
 .button_a
   bit  INP_BIT_A, b
   jp   z, .end
+
+  ld   hl, grid
 
   ; highlight jelly at current position
   ld   a, [cursor_y]
@@ -281,20 +288,21 @@ ProcessInput:
   ld   a, [cursor_x]
   add  a, e
   ld   e, a
-  ld   d, 0
 
+  ld   d, 0
   add  hl, de
 
   ld   a, [hl]
 
-  bit  7, a
+  ; check if jelly is active or inactive
+  bit  ACTIVE_JELLY_BIT, a
   jp   nz, .reset_jelly
 
-  set  7, a
+  set  ACTIVE_JELLY_BIT, a
   jp   .update_jelly
 
 .reset_jelly
-  res  7, a
+  res  ACTIVE_JELLY_BIT, a
 
 .update_jelly
   ld   [hl], a
@@ -304,8 +312,13 @@ ProcessInput:
 
   jp   .end
 
+
 .end
   ret
+
+
+
+
 
 
 ;----------------------------------------------------
@@ -647,8 +660,6 @@ LoadLevel:
 ;
 ;----------------------------------------------------
 
-ACTIVE_MASK equ %10000000
-
 ShowGrid:
 
   ld    hl, grid
@@ -667,11 +678,11 @@ ShowGrid:
 
   cp    1
   jp    z, .show_1
-  cp    1 + ACTIVE_MASK
+  cp    1 + ACTIVE_JELLY_MASK
   jp    z, .show_1_active
   cp    2
   jp    z, .show_2
-  cp    2 + ACTIVE_MASK
+  cp    2 + ACTIVE_JELLY_MASK
   jp    z, .show_2_active
   jp    .next
 
@@ -852,14 +863,10 @@ ds 1
 grid_changed:
 ds 1
 
-
 cursor_x:
 ds 1
 
 cursor_y:
-ds 1
-
-cursor_state:
 ds 1
 
 
@@ -869,7 +876,13 @@ ds 1
 prev_input:
 ds 1
 
-input_diff:
+input_down: ; which buttons just went down
+ds 1
+
+input_up: ; which buttons just went up
+ds 1
+
+input_held: ; which buttons are being held down
 ds 1
 
 
@@ -878,6 +891,6 @@ vblank_flag:
 ds		1		; set if a vblank occured since last pass through game loop
 
 grid:
-ds    3 * 2
+ds    GRID_WIDTH * GRID_HEIGHT
 
 
