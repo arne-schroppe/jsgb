@@ -50,6 +50,7 @@ Start::
   ld    [input_up], a
   ld    [input_held], a
 	ld		[vblank_flag], a
+	ld		[activation_length], a
 
   ld    a, 1
   ld    [grid_changed], a
@@ -235,6 +236,9 @@ ApplyInput:
   bit  INP_BIT_A, b
   jp   z, .process_down
 
+  ld   a, 0
+  ld   [activation_length], a  ; reset activation chain
+
   call DeactivateAllJellies
 
 
@@ -290,6 +294,8 @@ ApplyInput:
   ld   [cursor_x], a
   ; intentional fall-through
 
+
+; initial press of a button. Starts input mode
 .button_a
   bit  INP_BIT_A, b
   jp   z, .handle_cursor_moved
@@ -301,6 +307,7 @@ ApplyInput:
   ld   a, [cursor_y]
   ld   e, a
   call SwitchJelly
+  call AddCursorPositionToActivationChain
   pop  bc
   pop  de
 
@@ -317,32 +324,33 @@ ApplyInput:
   cp   e
   jp   nz, .cursor_did_move
 
-  jp   .end
+  jp   .cursor_did_not_move
 
 .cursor_did_move
 
   ; ## Check if we need to deactivate the jelly that is currently under the cursor
+  ; TODO use activation chain to deactivate until the position we moved to
 
-  ; takes d and e as parameters, which is the previous grid position here
-  call GetGridPositionForXAndY
-  ld   a, [hl]
-  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
-  jp   z, .process_held  ; if not, go on
-
-  push de
-  ld   a, [cursor_x]
-  ld   d, a
-  ld   a, [cursor_y]
-  ld   e, a
-  call GetGridPositionForXAndY
-  pop  de   ; reset d and e to old cursor position (we need it later)
-
-  ld   a, [hl]
-  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
-  jp   z, .process_held  ; if not, go on
-
-  ; deactivate the jelly under the previous cursor position
-  call SwitchJelly
+;  ; takes d and e as parameters, which is the previous grid position here
+;  call GetGridCellForXAndY
+;  ld   a, [hl]
+;  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
+;  jp   z, .process_held  ; if not, go on
+;
+;  push de
+;  ld   a, [cursor_x]
+;  ld   d, a
+;  ld   a, [cursor_y]
+;  ld   e, a
+;  call GetGridCellForXAndY
+;  pop  de   ; reset d and e to old cursor position (we need it later)
+;
+;  ld   a, [hl]
+;  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
+;  jp   z, .process_held  ; if not, go on
+;
+;  ; deactivate the jelly under the previous cursor position
+;  call SwitchJelly
 
 
 .process_held
@@ -358,12 +366,34 @@ ApplyInput:
   ld   a, [cursor_y]
   ld   e, a
   call SwitchJelly
+  call AddCursorPositionToActivationChain
 
-
+.cursor_did_not_move
 .end
   ret
 
 
+;----------------------------------------------------
+; in:
+;    d = x position
+;    e = y position
+;
+;----------------------------------------------------
+AddCursorPositionToActivationChain:
+  ld   a, [activation_length]
+  ld   c, a
+  ld   b, 0
+  ld   hl, activation_chain
+  add  hl, bc ; get pointer to current activation chain index
+
+  call GetGridIndexForXAndY ; d, e -> c
+  ld   [hl], c
+
+  ld   a, c
+  inc  a      ; increase activation length
+  ld   [activation_length], a
+
+  ret
 
 ;----------------------------------------------------
 ; in:
@@ -374,7 +404,7 @@ ApplyInput:
 SwitchJelly:
 
   ; highlight jelly at current position
-  call GetGridPositionForXAndY
+  call GetGridCellForXAndY
   ld   a, [hl]
 
   ; check if jelly is active or inactive
@@ -395,6 +425,20 @@ SwitchJelly:
 
   ret
 
+
+
+;----------------------------------------------------
+; in:
+;    c = grid index
+;
+;----------------------------------------------------
+DeactivateJellyAtIndex:
+  call GetGridCellForIndex
+  ld   a, [hl]
+  res  ACTIVE_JELLY_BIT, a
+  ld   [hl], a
+
+  ret
 
 
 ;----------------------------------------------------
@@ -429,10 +473,39 @@ DeactivateAllJellies:
 ;    e = y position
 ;
 ; out:
-;    hl = grid cell
+;    hl = pointer to grid cell
 ;----------------------------------------------------
-GetGridPositionForXAndY:
+GetGridCellForXAndY:
+  call GetGridIndexForXAndY  ; d, e -> c
+  call GetGridCellForIndex
+  ret
+
+;----------------------------------------------------
+; in:
+;    c = index
+;
+; out:
+;    hl = pointer to grid cell
+;----------------------------------------------------
+GetGridCellForIndex:
   ld   hl, grid
+  push bc
+  ld   b, 0
+  add  hl, bc
+  pop  bc
+
+  ret
+
+
+;----------------------------------------------------
+; in:
+;    d = x position
+;    e = y position
+;
+; out:
+;    c = offset into grid from 0
+;----------------------------------------------------
+GetGridIndexForXAndY:
 
   ld   a, e  ; load y
   sla  a  ; multiply by 8, our grid width
@@ -444,10 +517,7 @@ GetGridPositionForXAndY:
   add  a, c
   ld   c, a
 
-  ld   b, 0
-  add  hl, bc
-  ret
-
+ ret
 
 ;----------------------------------------------------
 ; Wait while LCD is busy
@@ -1016,9 +1086,14 @@ ds 1
 
 ; frame timing
 vblank_flag:
-ds		1		; set if a vblank occured since last pass through game loop
+ds 1		; set if a vblank occured since last pass through game loop
 
 grid:
 ds    GRID_WIDTH * GRID_HEIGHT
 
+activation_chain:
+ds    GRID_WIDTH * GRID_HEIGHT
+
+activation_length:
+ds 1
 
