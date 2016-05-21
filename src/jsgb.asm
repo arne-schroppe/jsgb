@@ -24,6 +24,14 @@ ACTIVE_JELLY_MASK equ %10000000
 ACTIVE_JELLY_BIT  equ 7
 
 
+
+jellysplash_tile_data_size EQU $D0
+jellysplash_tile_count EQU $20
+
+
+font_tile_data_size EQU $0300
+font_tile_count EQU $30
+
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
@@ -68,8 +76,17 @@ Start::
 
 
 	; load the tiles
+	ld		hl, _VRAM	; load the tiles to tiles bank 1
 	ld		bc, jellysplash_tile_data
+  ld    e, jellysplash_tile_count
 	call	LoadTiles
+
+  ; from the previous call to LoadTiles, hl is already set to the next free space after jelly tiles
+	ld		bc, font_tile_data
+  ld    e, $10  ; TODO can we somehow load all of the font?
+	call	LoadTiles
+
+
   call  ClearMap
 
   ; load sprite
@@ -98,19 +115,22 @@ Start::
 
 ; main game loop
 .Game_Loop
+  halt  ; preserve energy!
+  nop
+
 	; don't do a frame update unless we have had a vblank
 	ld		a, [vblank_flag]
 	cp		0
-	jp		z, .end
-
-  call  UpdateInput
-  call  ApplyInput
+	jp		z, .Game_Loop
 
 	; reset vblank flag
 	ld		a, 0
 	ld		[vblank_flag], a
 
-.end
+
+  call  UpdateInput
+  call  ApplyInput
+
 	jp		.Game_Loop
 
 
@@ -239,7 +259,9 @@ ApplyInput:
   ld   a, 0
   ld   [activation_length], a  ; reset activation chain
 
+  ; TODO remove all jellies in activation chain
   call DeactivateAllJellies
+  jp   .end
 
 
 .process_down
@@ -306,8 +328,12 @@ ApplyInput:
   ld   d, a
   ld   a, [cursor_y]
   ld   e, a
-  call SwitchJelly
+  call GetGridIndexForXAndY
+  call ActivateJellyAtIndex
   call AddCursorPositionToActivationChain
+  ld   a, 1
+  ld   [grid_changed], a
+
   pop  bc
   pop  de
 
@@ -331,26 +357,35 @@ ApplyInput:
   ; ## Check if we need to deactivate the jelly that is currently under the cursor
   ; TODO use activation chain to deactivate until the position we moved to
 
-;  ; takes d and e as parameters, which is the previous grid position here
-;  call GetGridCellForXAndY
-;  ld   a, [hl]
-;  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
-;  jp   z, .process_held  ; if not, go on
-;
-;  push de
-;  ld   a, [cursor_x]
-;  ld   d, a
-;  ld   a, [cursor_y]
-;  ld   e, a
-;  call GetGridCellForXAndY
-;  pop  de   ; reset d and e to old cursor position (we need it later)
-;
-;  ld   a, [hl]
-;  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
-;  jp   z, .process_held  ; if not, go on
-;
-;  ; deactivate the jelly under the previous cursor position
-;  call SwitchJelly
+  ; takes d and e as parameters, which is the previous grid position here
+  call GetGridCellForXAndY
+  ld   a, [hl]
+  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
+  jp   z, .process_held  ; if not, go on
+
+  ;push de
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+  call GetGridCellForXAndY
+  ;pop  de   ; reset d and e to old cursor position (we need it later) TODO do we actually?
+
+  ld   a, [hl]
+  bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
+  jp   z, .process_held  ; if not, go on
+
+  ; deactivate the jelly under the previous cursor position
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+  call DeactivateJelliesUntilPosition
+
+  ld   a, 1
+  ld   [grid_changed], a
+
+  jp   .end
 
 
 .process_held
@@ -365,12 +400,19 @@ ApplyInput:
   ld   d, a
   ld   a, [cursor_y]
   ld   e, a
-  call SwitchJelly
+  call ActivateJellyAtIndex
+  ld   a, 1
+  ld   [grid_changed], a
   call AddCursorPositionToActivationChain
 
 .cursor_did_not_move
 .end
   ret
+
+
+;
+
+
 
 
 ;----------------------------------------------------
@@ -386,14 +428,123 @@ AddCursorPositionToActivationChain:
   ld   hl, activation_chain
   add  hl, bc ; get pointer to current activation chain index
 
+  push bc
   call GetGridIndexForXAndY ; d, e -> c
   ld   [hl], c
+  pop  bc
 
   ld   a, c
   inc  a      ; increase activation length
   ld   [activation_length], a
 
   ret
+
+
+
+
+;----------------------------------------------------
+; in:
+;    d = x position
+;    e = y position
+;----------------------------------------------------
+DeactivateJelliesUntilPosition:
+
+  call GetGridIndexForXAndY  ; d, e -> c
+  ld   a, [activation_length]
+  ld   b, a
+  ld   d, 0 ; loop index
+  ld   hl, activation_chain
+
+.find_index_loop
+
+  ; did we reach the end of the activation chain?
+  ld   a, d
+  cp   b
+  jp   z, .failed_find_index_loop
+
+  ; read and compare next index
+  ld   a, [hli]
+  cp   c
+  jp   z, .end_find_index_loop
+
+  inc  d
+  jp   .find_index_loop
+
+.failed_find_index_loop
+  stop ; was `ret` before, but should never happen, so we panic
+
+.end_find_index_loop
+  ; our index is now in d and the current activation_chain position is in hl
+
+  ld   a, [activation_length]
+  sub  a, d
+  ld   d, a
+  ld   [activation_length], a
+
+.loop
+
+  ld   a, d
+  cp   0
+  jp   z, .end
+
+  ld   a, [hli]
+  ld   c, a
+  push hl
+  push de
+  call DeactivateJellyAtIndex
+  pop  de
+  pop  hl
+
+  dec  d
+  jp   .loop
+
+
+.end
+  ret
+
+;   call GetGridIndexForXAndY  ; d, e -> c
+;   ld   d, c
+; 
+;   ; loop and reset until we find the index
+; .loop
+; 
+;   ; did we exhaust the entire chain? (This would be an error, as we should always go back to a specified element)
+;   ld   a, [activation_length]
+;   cp   0
+;   jp   z, .end
+; 
+;   ; get index in activation chain
+;   dec  a
+;   ld   c, a
+;   ld   hl, activation_chain
+;   ld   b, 0
+;   add  hl, bc
+; 
+;   ; is this our final grid cell?
+;   ld   a, [hl]
+;   cp   d
+;   jp   z, .end  ; we found our original x and y position, go to end
+; 
+;   ; deactivate this jelly
+;   ld   c, a
+;   call DeactivateJellyAtIndex
+; 
+;   ; decrement activation length
+;   ld   a, [activation_length]
+;   dec  a
+;   ld   [activation_length], a
+; 
+;   jp   .loop
+; 
+; .end
+;   ; signal that grid was changed
+;   ; TODO turn this into macro or subroutine!!
+;   ld    a, 1
+;   ld    [grid_changed], a
+
+  ret
+
+
 
 ;----------------------------------------------------
 ; in:
@@ -440,6 +591,13 @@ DeactivateJellyAtIndex:
 
   ret
 
+ActivateJellyAtIndex:
+  call GetGridCellForIndex
+  ld   a, [hl]
+  set  ACTIVE_JELLY_BIT, a
+  ld   [hl], a
+
+  ret
 
 ;----------------------------------------------------
 ; Deactivate all jellies
@@ -535,13 +693,13 @@ ENDM
 ; load the tiles from ROM into the tile video memory
 ;
 ; in:	bc = address of tile data to load
+;      e = num tiles to load
+;     hl = start of VRAM to load into
 ;----------------------------------------------------
 LoadTiles:
-	ld		hl, _VRAM	; load the tiles to tiles bank 1
 
-	ld		de, 4 * 16
 	ld		d, $10  ; 16 bytes per tile
-	ld		e, 12  ; number of tiles to load
+	; ld		e, 12  ; number of tiles to load
 
 .loop
   ; WaitBusy
@@ -1044,9 +1202,9 @@ SECTION "Levels", HOME
 
 level_1:
 db 2, 1, 2, 1, 2, 1, 1, 1
-db 1, 2, 0, 2, 1, 2, 2, 2
-db 1, 2, 0, 2, 1, 1, 0, 1
-db 1, 1, 2, 1, 1, 2, 0, 2
+db 1, 2, 1, 2, 1, 2, 2, 2
+db 1, 2, 1, 2, 1, 1, 1, 1
+db 1, 1, 2, 1, 1, 2, 1, 2
 
 
 ;----------------------------------------------------
