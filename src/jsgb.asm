@@ -532,6 +532,8 @@ DeactivateJelliesUntilPosition:
   stop ; was `ret` before, but should never happen, so we panic
 
 .end_find_index_loop
+  inc  d ; add one for cursor position
+
   ; our index is now in d and the current activation_chain position is in hl
 
   ld   b, d ; store our new activation length
@@ -561,7 +563,6 @@ DeactivateJelliesUntilPosition:
 
   dec  d
   jp   .loop
-
 
 .end
   ret
