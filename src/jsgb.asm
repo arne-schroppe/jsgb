@@ -338,8 +338,11 @@ ApplyInput:
   bit  INP_BIT_B, b
   jp   z, .handle_cursor_moved
 
-  call TestResetJellies
+  ld    hl, level_1
+  call  LoadLevel
 
+  ld   a, 1
+  ld   [grid_changed], a
 
 .handle_cursor_moved
 
@@ -471,30 +474,6 @@ RemoveActiveJellies:
   ret
 
 
-
-;----------------------------------------------------
-; in:
-;   <nothing>
-;----------------------------------------------------
-TestResetJellies:
-  ld   hl, grid
-
-  ld   e, 0
-  ld   c, GRID_WIDTH * GRID_HEIGHT
-
-.loop
-  ld   a, 2
-  ld   [hli], a
-
-  inc  e
-  ld   a, c
-  cp   e
-  jp   nz, .loop
-
-  ld   a, 1
-  ld   [grid_changed], a
-
-  ret
 
 ;----------------------------------------------------
 ; in:
@@ -687,7 +666,7 @@ ActivateJellyAtIndex:
 
 RemoveJellyAtIndex:
   call GetGridCellForIndex
-  ld   a, 1 ; TODO this should be 0, it's only 1 because we don't have a routine to fill in new jellies yet
+  ld   a, 0
   ld   [hl], a
   ret
 
@@ -1304,10 +1283,10 @@ db 9, 10, 11, 12
 SECTION "Levels", HOME
 
 level_1:
-db 2, 2, 2, 2, 2, 2, 2, 2
-db 2, 2, 2, 2, 2, 2, 2, 2
-db 2, 2, 2, 2, 2, 2, 2, 2
-db 2, 2, 2, 2, 2, 2, 2, 2
+db 1, 2, 2, 1, 1, 1, 1, 2
+db 1, 2, 2, 2, 1, 2, 1, 1
+db 1, 1, 2, 2, 2, 1, 2, 1
+db 2, 2, 2, 2, 1, 2, 1, 2
 
 
 ;----------------------------------------------------
