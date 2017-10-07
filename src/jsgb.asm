@@ -256,11 +256,8 @@ ApplyInput:
   bit  INP_BIT_A, b
   jp   z, .process_down
 
-  ld   a, 0
-  ld   [activation_length], a  ; reset activation chain
+  call RemoveActiveJellies
 
-  ; TODO remove all jellies in activation chain
-  call DeactivateAllJellies
   jp   .end
 
 
@@ -410,9 +407,40 @@ ApplyInput:
   ret
 
 
+;----------------------------------------------------
 ;
+;----------------------------------------------------
+RemoveActiveJellies:
 
+  ld   a, [activation_length]
+  ld   d, a
+  ld   e, 0
+  ld   hl, activation_chain
 
+.loop
+  ld   a, [hli]
+  ld   c, a
+
+  push de
+  push hl
+  call RemoveJellyAtIndex ; args: c
+  pop  hl
+  pop  de
+
+  ; check our index (e) against the max (d)
+  inc  e
+  ld   a, d
+  cp   e
+  jp   nz, .loop
+
+.end
+  ld   a, 1
+  ld   [grid_changed], a
+
+  ld   a, 0
+  ld   [activation_length], a  ; reset activation chain
+
+  ret
 
 
 ;----------------------------------------------------
@@ -595,6 +623,13 @@ ActivateJellyAtIndex:
   call GetGridCellForIndex
   ld   a, [hl]
   set  ACTIVE_JELLY_BIT, a
+  ld   [hl], a
+
+  ret
+
+RemoveJellyAtIndex:
+  call GetGridCellForIndex
+  ld   a, 0
   ld   [hl], a
 
   ret
@@ -1040,7 +1075,7 @@ ShowGrid:
   jp    z, .show_2
   cp    2 + ACTIVE_JELLY_MASK
   jp    z, .show_2_active
-  jp    .next
+  jp    .hide
 
 
 .show_1
@@ -1060,6 +1095,11 @@ ShowGrid:
 
 .show_2_active
   ld    hl, active_jelly_2
+  call  LoadTileAtPosition
+  jp    .next
+
+.hide
+  ld    hl, blank_jelly
   call  LoadTileAtPosition
   jp    .next
 
@@ -1176,6 +1216,11 @@ SPR_TILE_DATA_OFFSET equ 1
 
 SECTION "Graphics", HOME
 
+blank_jelly:
+db 1 ; palette
+db 0, 0, 0, 0
+
+
 active_jelly_1:
 db 1 ; palette
 db 1, 2, 5, 6
@@ -1193,6 +1238,7 @@ inactive_jelly_2:
 db 2 ; palette
 db 3, 4, 7, 8
 
+
 cursor_sprite:
 db 1 ; palette
 db 9, 10, 11, 12
@@ -1202,9 +1248,9 @@ SECTION "Levels", HOME
 
 level_1:
 db 2, 1, 2, 1, 2, 1, 1, 1
-db 1, 2, 1, 2, 1, 2, 2, 2
-db 1, 2, 1, 2, 1, 1, 1, 1
-db 1, 1, 2, 1, 1, 2, 1, 2
+db 1, 2, 0, 2, 1, 2, 2, 2
+db 1, 2, 0, 2, 1, 1, 0, 1
+db 1, 1, 2, 1, 1, 2, 0, 2
 
 
 ;----------------------------------------------------
