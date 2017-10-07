@@ -29,9 +29,6 @@ jellysplash_tile_data_size EQU $D0
 jellysplash_tile_count EQU $20
 
 
-font_tile_data_size EQU $0300
-font_tile_count EQU $30
-
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
@@ -408,7 +405,8 @@ ApplyInput:
 
 
 ;----------------------------------------------------
-;
+; in:
+;   <nothing>
 ;----------------------------------------------------
 RemoveActiveJellies:
 
@@ -504,9 +502,15 @@ DeactivateJelliesUntilPosition:
 .end_find_index_loop
   ; our index is now in d and the current activation_chain position is in hl
 
+  ld   b, d ; store our new activation length
+
+  ; store remaining length in d
   ld   a, [activation_length]
   sub  a, d
   ld   d, a
+
+  ; store new activation_length
+  ld   a, b
   ld   [activation_length], a
 
 .loop
@@ -1248,9 +1252,9 @@ SECTION "Levels", HOME
 
 level_1:
 db 2, 1, 2, 1, 2, 1, 1, 1
-db 1, 2, 0, 2, 1, 2, 2, 2
-db 1, 2, 0, 2, 1, 1, 0, 1
-db 1, 1, 2, 1, 1, 2, 0, 2
+db 1, 2, 1, 2, 1, 2, 2, 2
+db 1, 2, 1, 2, 1, 1, 1, 1
+db 1, 1, 2, 1, 1, 2, 1, 2
 
 
 ;----------------------------------------------------
