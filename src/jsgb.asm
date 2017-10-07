@@ -314,7 +314,7 @@ ApplyInput:
 ; initial press of a button. Starts input mode
 .button_a
   bit  INP_BIT_A, b
-  jp   z, .handle_cursor_moved
+  jp   z, .button_b
 
   push de
   push bc
@@ -330,7 +330,14 @@ ApplyInput:
 
   pop  bc
   pop  de
+  jp   .handle_cursor_moved
 
+
+.button_b
+  bit  INP_BIT_B, b
+  jp   z, .handle_cursor_moved
+
+  call TestResetJellies
 
 
 .handle_cursor_moved
@@ -440,6 +447,31 @@ RemoveActiveJellies:
 
   ret
 
+
+
+;----------------------------------------------------
+; in:
+;   <nothing>
+;----------------------------------------------------
+TestResetJellies:
+  ld   hl, grid
+
+  ld   e, 0
+  ld   c, GRID_WIDTH * GRID_HEIGHT
+
+.loop
+  ld   a, 2
+  ld   [hli], a
+
+  inc  e
+  ld   a, c
+  cp   e
+  jp   nz, .loop
+
+  ld   a, 1
+  ld   [grid_changed], a
+
+  ret
 
 ;----------------------------------------------------
 ; in:
@@ -620,7 +652,6 @@ DeactivateJellyAtIndex:
   ld   a, [hl]
   res  ACTIVE_JELLY_BIT, a
   ld   [hl], a
-
   ret
 
 ActivateJellyAtIndex:
@@ -628,14 +659,12 @@ ActivateJellyAtIndex:
   ld   a, [hl]
   set  ACTIVE_JELLY_BIT, a
   ld   [hl], a
-
   ret
 
 RemoveJellyAtIndex:
   call GetGridCellForIndex
-  ld   a, 0
+  ld   a, 1 ; TODO this should be 0, it's only 1 because we don't have a routine to fill in new jellies yet
   ld   [hl], a
-
   ret
 
 ;----------------------------------------------------
@@ -1251,10 +1280,10 @@ db 9, 10, 11, 12
 SECTION "Levels", HOME
 
 level_1:
-db 2, 1, 2, 1, 2, 1, 1, 1
-db 1, 2, 1, 2, 1, 2, 2, 2
-db 1, 2, 1, 2, 1, 1, 1, 1
-db 1, 1, 2, 1, 1, 2, 1, 2
+db 2, 2, 2, 2, 2, 2, 2, 2
+db 2, 2, 2, 2, 2, 2, 2, 2
+db 2, 2, 2, 2, 2, 2, 2, 2
+db 2, 2, 2, 2, 2, 2, 2, 2
 
 
 ;----------------------------------------------------
