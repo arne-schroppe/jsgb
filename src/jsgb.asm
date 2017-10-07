@@ -24,10 +24,11 @@ ACTIVE_JELLY_MASK equ %10000000
 ACTIVE_JELLY_BIT  equ 7
 
 
-
 jellysplash_tile_data_size EQU $D0
 jellysplash_tile_count EQU $20
 
+
+MIN_JELLIES_FOR_MOVE  equ 3
 
 ;****************************************************************************************************************************************************
 ;*	Program Start
@@ -253,7 +254,7 @@ ApplyInput:
   bit  INP_BIT_A, b
   jp   z, .process_down
 
-  call RemoveActiveJellies
+  call CheckPopJellies
 
   jp   .end
 
@@ -409,6 +410,28 @@ ApplyInput:
 .cursor_did_not_move
 .end
   ret
+
+
+;----------------------------------------------------
+; in:
+;   <nothing>
+;----------------------------------------------------
+CheckPopJellies:
+
+  ; if activation_length < 3, just reset, otherwise pop all active jellies
+  ld  a, [activation_length]
+  cp  MIN_JELLIES_FOR_MOVE
+  jp  c, .not_enough ; a < MIN_JELLIES_FOR_MOVE
+
+  call RemoveActiveJellies
+  ret
+
+.not_enough
+  call DeactivateAllJellies
+  ld   a, 0
+  ld   [activation_length], a  ; reset activation chain
+  ret
+
 
 
 ;----------------------------------------------------
