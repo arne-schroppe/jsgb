@@ -14,11 +14,11 @@ TILES_PER_LINE  equ  $20
 ANIMATION_CYCLE equ  $20
 
 GRID_WIDTH   equ 8
-GRID_HEIGHT  equ 4
+GRID_HEIGHT  equ 7
 
 
 GRID_START_X  equ 1
-GRID_START_Y  equ 2
+GRID_START_Y  equ 1
 
 ACTIVE_JELLY_MASK equ %10000000
 ACTIVE_JELLY_BIT  equ 7
@@ -1290,6 +1290,9 @@ db 1, 2, 2, 1, 1, 1, 1, 2
 db 1, 2, 2, 2, 1, 2, 1, 1
 db 1, 1, 2, 2, 2, 1, 2, 1
 db 2, 2, 2, 2, 1, 2, 1, 2
+db 2, 2, 2, 2, 1, 2, 1, 2
+db 2, 2, 2, 2, 1, 2, 1, 2
+db 1, 2, 2, 1, 1, 1, 1, 2
 
 
 ;----------------------------------------------------
