@@ -367,7 +367,7 @@ ApplyInput:
 ; initial press of a button. Starts input mode
 .button_a
   bit  INP_BIT_A, b
-  jp   z, .button_b
+  jp   z, .button_select
 
   push de
   push bc
@@ -386,8 +386,8 @@ ApplyInput:
   jp   .handle_cursor_moved
 
 
-.button_b
-  bit  INP_BIT_B, b
+.button_select
+  bit  INP_BIT_SELECT, b
   jp   z, .handle_cursor_moved
 
   ld    hl, level_1
