@@ -469,12 +469,117 @@ CheckPopJellies:
   jp  c, .not_enough ; a < MIN_JELLIES_FOR_MOVE
 
   call RemoveActiveJellies
+  call PullDownAllJellies
   ret
 
 .not_enough
   call DeactivateAllJellies
   ld   a, 0
   ld   [activation_length], a  ; reset activation chain
+  ret
+
+
+
+;----------------------------------------------------
+; in:
+;   <nothing>
+;----------------------------------------------------
+PullDownAllJellies:
+  ld   e, GRID_HEIGHT - 1
+
+.loop_y
+  ld   d, 0
+
+.loop_x
+    push de
+    call PullDownJellyIfNeeded
+    pop  de
+
+    inc  d
+    ld   a, d
+    cp   GRID_WIDTH
+    jp   nz, .loop_x
+
+  ld   a, e
+  cp   0
+  jp   z, .done
+
+  dec  e
+  jp   .loop_y
+
+.done
+  ret
+
+
+;----------------------------------------------------
+; in:
+;   d = x coordinate
+;   e = y coordinate
+;----------------------------------------------------
+PullDownJellyIfNeeded:
+  ld   a, 0
+  cp   e
+  jp   z, .get_cell_and_spawn_new
+
+  call GetGridCellForXAndY
+  ld   a, [hl]
+
+  ; check if cell is empty
+  cp   0
+  ret  nz ; return if not
+
+  push hl
+
+.loop
+  ; check if we've reached the top of the board
+  ld   a, 0
+  cp   e
+  jp   z, .spawn_new_jelly
+
+  dec  e ; go up
+
+  ; loop again if we haven't found a non-empty cell
+  call GetGridCellForXAndY
+  ld   a, [hl]
+  cp   0
+  jp   z, .loop
+
+  ld   a, [hl]
+  ld   b, a
+  ld   [hl], 0 ; empty this cell
+  jp   .next
+
+.get_cell_and_spawn_new
+  call GetGridCellForXAndY
+
+  ; check if cell is empty
+  ld   a, [hl]
+  cp   0
+  ret  nz
+
+  push hl ; needed for consistency with other code branch
+  ; fall-through
+
+.spawn_new_jelly
+  call GetRandomJelly
+
+.next
+  pop  hl
+  ld   a, b
+  ld   [hl], a ; move content from upper cell into this position
+
+  ret
+
+
+;----------------------------------------------------
+; in:
+;   <nothing>
+; out:
+;   b = jelly id
+;----------------------------------------------------
+GetRandomJelly:
+  ; TODO generate random jelly
+  ld   b, 1
   ret
 
 
