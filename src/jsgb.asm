@@ -1245,7 +1245,6 @@ dw  $823c
 dw  $1234
 
 
-
 ; This section describes each graphic. First byte is the palette, next 4 bytes
 ; are the relative tile addresses for the active frame (eyes open) and next 4
 ; bytes again are the states for inactive frame
