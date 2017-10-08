@@ -246,20 +246,21 @@ ApplyInput:
   ld   a, [cursor_y]
   ld   e, a
 
-.process_up
+
+.process_buttons_up
   ld   a, [input_up]
   ld   b, a
 
 .button_a_up
   bit  INP_BIT_A, b
-  jp   z, .process_down
+  jp   z, .process_buttons_down
 
   call CheckPopJellies
 
   jp   .end
 
 
-.process_down
+.process_buttons_down
   ld   a, [input_down]
   ld   b, a
 
@@ -271,7 +272,7 @@ ApplyInput:
   cp   0
   jp   z, .down
 
-  sub  a, 1
+  dec  a
   ld   [cursor_y], a
   ; intentional fall-through
 
@@ -283,7 +284,7 @@ ApplyInput:
   cp   GRID_HEIGHT - 1
   jp   z, .left
 
-  add  a, 1
+  inc  a
   ld   [cursor_y], a
   ; intentional fall-through
 
@@ -295,22 +296,74 @@ ApplyInput:
   cp   0
   jp   z, .right
 
-  sub  a, 1
+  dec  a
   ld   [cursor_x], a
   ; intentional fall-through
 
 .right
   bit  INP_BIT_RIGHT, b
-  jp   z, .button_a
+  jp   z, .check_can_move
 
   ld   a, [cursor_x]
   cp   GRID_WIDTH - 1
-  jp   z, .button_a
+  jp   z, .check_can_move
 
-  add  a, 1
+  inc  a
   ld   [cursor_x], a
   ; intentional fall-through
 
+
+.check_can_move
+
+  ; do we need to check? (i.e. are we in connect-mode?)
+  ld   a, [input_held]
+  bit  INP_BIT_A, a
+  jp   z, .button_a
+
+  ; get color under previous cursor position
+  push bc
+  call GetGridIndexForXAndY ; d, e -> c
+  ld   hl, grid
+  ld   b, 0
+  add  hl, bc ; advance pointer
+  ld   a, [hl]
+  res  ACTIVE_JELLY_BIT, a ; ignore whether jelly is active
+  ld   c, a  ; store current color in c
+
+  push de ; store previous cursor position
+
+  ; get color under new cursor position
+  ld   a, [cursor_x]
+  ld   d, a
+  ld   a, [cursor_y]
+  ld   e, a
+
+  push bc
+  call GetGridIndexForXAndY ; d, e -> c
+  ld   hl, grid
+  ld   b, 0
+  add  hl, bc ; advance pointer
+  pop  bc
+
+  ld   a, [hl]
+  res  ACTIVE_JELLY_BIT, a ; ignore whether jelly is active
+
+  ; check if color at new position is same as c
+  cp   c
+
+  pop  de
+  pop  bc
+  jp   z, .same_color
+
+  ; reset to previous position
+  ld   a, d
+  ld   [cursor_x], a
+  ld   a, e
+  ld   [cursor_y], a
+  jp   .button_a
+
+.same_color
+  ; fall through
 
 ; initial press of a button. Starts input mode
 .button_a
@@ -323,9 +376,9 @@ ApplyInput:
   ld   d, a
   ld   a, [cursor_y]
   ld   e, a
-  call GetGridIndexForXAndY
-  call ActivateJellyAtIndex
-  call AddCursorPositionToActivationChain
+  call GetGridIndexForXAndY ; d, e -> c
+  call ActivateJellyAtIndex ; c -> void
+  call AddCursorPositionToActivationChain ; d, e -> void
   ld   a, 1
   ld   [grid_changed], a
 
@@ -413,6 +466,7 @@ ApplyInput:
 .cursor_did_not_move
 .end
   ret
+
 
 
 ;----------------------------------------------------
