@@ -321,10 +321,7 @@ ApplyInput:
 
   ; get color under previous cursor position
   push bc
-  call GetGridIndexForXAndY ; d, e -> c
-  ld   hl, grid
-  ld   b, 0
-  add  hl, bc ; advance pointer
+  call GetGridCellForXAndY ; d, e -> hl
   ld   a, [hl]
   res  ACTIVE_JELLY_BIT, a ; ignore whether jelly is active
   ld   c, a  ; store current color in c
@@ -338,10 +335,7 @@ ApplyInput:
   ld   e, a
 
   push bc
-  call GetGridIndexForXAndY ; d, e -> c
-  ld   hl, grid
-  ld   b, 0
-  add  hl, bc ; advance pointer
+  call GetGridCellForXAndY ; d, e -> hl
   pop  bc
 
   ld   a, [hl]
@@ -482,7 +476,6 @@ CheckPopJellies:
   ld   a, 0
   ld   [activation_length], a  ; reset activation chain
   ret
-
 
 
 ;----------------------------------------------------
