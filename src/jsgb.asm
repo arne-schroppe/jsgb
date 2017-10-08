@@ -412,22 +412,17 @@ ApplyInput:
 
 .cursor_did_move
 
-  ; ## Check if we need to deactivate the jelly that is currently under the cursor
-  ; TODO use activation chain to deactivate until the position we moved to
-
   ; takes d and e as parameters, which is the previous grid position here
   call GetGridCellForXAndY
   ld   a, [hl]
   bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the old cursor position was highlighted
   jp   z, .process_held  ; if not, go on
 
-  ;push de
   ld   a, [cursor_x]
   ld   d, a
   ld   a, [cursor_y]
   ld   e, a
   call GetGridCellForXAndY
-  ;pop  de   ; reset d and e to old cursor position (we need it later) TODO do we actually?
 
   ld   a, [hl]
   bit  ACTIVE_JELLY_BIT, a  ; check if the jelly under the new cursor position is also higlighted
@@ -623,48 +618,6 @@ DeactivateJelliesUntilPosition:
 .end
   ret
 
-;   call GetGridIndexForXAndY  ; d, e -> c
-;   ld   d, c
-; 
-;   ; loop and reset until we find the index
-; .loop
-; 
-;   ; did we exhaust the entire chain? (This would be an error, as we should always go back to a specified element)
-;   ld   a, [activation_length]
-;   cp   0
-;   jp   z, .end
-; 
-;   ; get index in activation chain
-;   dec  a
-;   ld   c, a
-;   ld   hl, activation_chain
-;   ld   b, 0
-;   add  hl, bc
-; 
-;   ; is this our final grid cell?
-;   ld   a, [hl]
-;   cp   d
-;   jp   z, .end  ; we found our original x and y position, go to end
-; 
-;   ; deactivate this jelly
-;   ld   c, a
-;   call DeactivateJellyAtIndex
-; 
-;   ; decrement activation length
-;   ld   a, [activation_length]
-;   dec  a
-;   ld   [activation_length], a
-; 
-;   jp   .loop
-; 
-; .end
-;   ; signal that grid was changed
-;   ; TODO turn this into macro or subroutine!!
-;   ld    a, 1
-;   ld    [grid_changed], a
-
-  ret
-
 
 
 ;----------------------------------------------------
@@ -698,7 +651,6 @@ SwitchJelly:
   ret
 
 
-
 ;----------------------------------------------------
 ; in:
 ;    c = grid index
@@ -723,6 +675,7 @@ RemoveJellyAtIndex:
   ld   a, 0
   ld   [hl], a
   ret
+
 
 ;----------------------------------------------------
 ; Deactivate all jellies
@@ -763,6 +716,7 @@ GetGridCellForXAndY:
   call GetGridCellForIndex
   ret
 
+
 ;----------------------------------------------------
 ; in:
 ;    c = index
@@ -802,6 +756,7 @@ GetGridIndexForXAndY:
 
  ret
 
+
 ;----------------------------------------------------
 ; Wait while LCD is busy
 ;----------------------------------------------------
@@ -839,7 +794,6 @@ LoadTiles:
 	jr		nz, .loop
 
 	ret
-
 
 
 ;----------------------------------------------------
@@ -924,8 +878,6 @@ LoadTileAtPosition:
   ret
 
 
-
-
 ;----------------------------------------------------
 ; init DMG palettes to basic
 ;----------------------------------------------------
@@ -938,6 +890,7 @@ InitPalettes:
 	ldh		[rOBP1], a
 
 	ret
+
 
 ;----------------------------------------------------
 ; Write CGB palette to both bg and obj memory
@@ -1056,7 +1009,6 @@ ShowSingleSprite:
   ret
 
 
-
 ;----------------------------------------------------
 ; Update position of cursor
 ;
@@ -1133,7 +1085,6 @@ LoadLevel:
   jp   nz, .loop
 
   ret
-
 
 
 ;----------------------------------------------------
@@ -1227,6 +1178,7 @@ ShowGrid:
 .end
   ret
 
+
 ;----------------------------------------------------
 ; Push and pop registers
 ;----------------------------------------------------
@@ -1269,7 +1221,6 @@ VBlankHandler::
 
   PopRegs
   reti
-
 
 
 ;----------------------------------------------------
