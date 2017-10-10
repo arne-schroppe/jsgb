@@ -568,7 +568,11 @@ PullDownJellyIfNeeded:
   ; fall-through
 
 .spawn_new_jelly
-  call GetRandomJelly
+  call GetRandomNumber
+  and  %00000011 ; limit to number of jellies
+  add  1
+  ld   b, a
+
 
 .next
   pop  hl
@@ -582,13 +586,24 @@ PullDownJellyIfNeeded:
 ; in:
 ;   <nothing>
 ; out:
-;   b = jelly id
+;   a = random number
+;
+; Source: http://www.z80.info/pseudo-random.txt
 ;----------------------------------------------------
-GetRandomJelly:
-  ; TODO generate random jelly
-  ld   b, 1
-  ret
+GetRandomNumber:
+ ld a, [random_number_seed]
+ ld b, a
 
+ rrca ; multiply by 32
+ rrca
+ rrca
+ xor  $1f
+
+ add a, b
+ sbc a, 255 ; carry
+
+ ld [random_number_seed], a
+ ret
 
 ;----------------------------------------------------
 ; in:
@@ -1502,3 +1517,5 @@ ds    GRID_WIDTH * GRID_HEIGHT
 activation_length:
 ds 1
 
+random_number_seed:
+ds 1
