@@ -27,12 +27,12 @@ ACTIVE_JELLY_BIT  equ 7
 MIN_JELLIES_FOR_MOVE  equ 3
 
 
-sprites_tile_map_size EQU $20
+sprites_tile_map_size EQU $40
 sprites_tile_map_width EQU $08
-sprites_tile_map_height EQU $04
+sprites_tile_map_height EQU $08
 
-sprites_tile_data_size EQU $0150
-sprites_tile_count EQU $20
+sprites_tile_data_size EQU $0400
+sprites_tile_count EQU $40
 
 ;****************************************************************************************************************************************************
 ;*	Program Start
@@ -76,6 +76,13 @@ Start::
   ld    b, $2
   call  WriteColorPalette
 
+  ld    hl, palette3
+  ld    b, $3
+  call  WriteColorPalette
+
+  ld    hl, palette4
+  ld    b, $4
+  call  WriteColorPalette
 
 	; load the tiles
 	ld		hl, _VRAM	; load the tiles to tiles bank 1
@@ -555,7 +562,7 @@ PullDownJellyIfNeeded:
   ; check if cell is empty
   ld   a, [hl]
   cp   0
-  ret  nz
+  ret  nz ; return if not (we don't overwrite existing jellies)
 
   push hl ; needed for consistency with other code branch
   ; fall-through
@@ -1213,6 +1220,14 @@ ShowGrid:
   jp    z, .show_2
   cp    2 + ACTIVE_JELLY_MASK
   jp    z, .show_2_active
+  cp    3
+  jp    z, .show_3
+  cp    3 + ACTIVE_JELLY_MASK
+  jp    z, .show_3_active
+  cp    4
+  jp    z, .show_4
+  cp    4 + ACTIVE_JELLY_MASK
+  jp    z, .show_4_active
   jp    .hide
 
 
@@ -1226,6 +1241,16 @@ ShowGrid:
   call  LoadTileAtPosition
   jp    .next
 
+.show_3
+  ld    hl, inactive_jelly_3
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_4
+  ld    hl, inactive_jelly_4
+  call  LoadTileAtPosition
+  jp    .next
+
 .show_1_active
   ld    hl, active_jelly_1
   call  LoadTileAtPosition
@@ -1233,6 +1258,16 @@ ShowGrid:
 
 .show_2_active
   ld    hl, active_jelly_2
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_3_active
+  ld    hl, active_jelly_3
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_4_active
+  ld    hl, active_jelly_4
   call  LoadTileAtPosition
   jp    .next
 
@@ -1338,10 +1373,22 @@ dw  $0000
 
 palette2:
 dw  $ffff
-dw  $e7ff
+dw  $03df
 dw  $823c
 dw  $1234
 
+palette3:
+dw  $ffff
+dw  $7CDC
+dw  $2849
+dw  $0000
+
+; Reds
+palette4:
+dw  $ffff
+dw  $00ff ; light
+dw  $0033 ; medium dark
+dw  $0047 ; dark
 
 ; This section describes each graphic. First byte is the palette, next 4 bytes
 ; are the relative tile addresses for the active frame (eyes open) and next 4
@@ -1360,21 +1407,35 @@ db 0, 0, 0, 0
 
 active_jelly_1:
 db 1 ; palette
-db 2, 3, 10, 11
+db 34, 35, 42, 43
 
 inactive_jelly_1:
 db 1 ; palette
-db 6, 7, 14, 15
-
+db 50, 51, 58, 59
 
 active_jelly_2:
 db 2 ; palette
-db 18, 19, 26, 27
+db 36, 37, 44, 45
 
 inactive_jelly_2:
 db 2 ; palette
-db 22, 23, 30, 31
+db 52, 53, 60, 61
 
+active_jelly_3:
+db 3 ; palette
+db 38, 39, 46, 47
+
+inactive_jelly_3:
+db 3 ; palette
+db 54, 55, 62, 63
+
+active_jelly_4:
+db 4 ; palette
+db 32, 33, 40, 41
+
+inactive_jelly_4:
+db 4 ; palette
+db 48, 49, 56, 57
 
 cursor_sprite:
 db 1 ; palette
@@ -1384,13 +1445,13 @@ db 16, 17, 24, 25
 SECTION "Levels", ROM0
 
 level_1:
-db 1, 2, 2, 1, 1, 1, 1, 2
-db 1, 2, 2, 2, 1, 2, 1, 1
+db 1, 2, 2, 4, 4, 4, 1, 2
+db 1, 3, 3, 3, 1, 2, 1, 1
 db 1, 1, 2, 2, 2, 1, 2, 1
-db 2, 2, 2, 2, 1, 2, 1, 2
-db 2, 2, 2, 2, 1, 2, 1, 2
-db 2, 2, 2, 2, 1, 2, 1, 2
-db 1, 2, 2, 1, 1, 1, 1, 2
+db 2, 2, 2, 3, 3, 2, 1, 2
+db 2, 2, 2, 2, 3, 3, 1, 2
+db 2, 4, 4, 3, 1, 2, 1, 2
+db 1, 2, 2, 4, 1, 4, 1, 2
 
 
 ;----------------------------------------------------
