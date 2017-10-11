@@ -23,7 +23,6 @@ GRID_START_Y  equ 1
 ACTIVE_JELLY_MASK equ %10000000
 ACTIVE_JELLY_BIT  equ 7
 
-
 MIN_JELLIES_FOR_MOVE  equ 3
 
 
@@ -193,7 +192,7 @@ UpdateInput:
 
   ld   [rP1], a
 
-  ; read state of directional pad (several times because of button bounce)
+  ; read state of buttons (several times because of button bounce)
   ld   a, [rP1]
   ld   a, [rP1]
   ld   a, [rP1]
@@ -267,56 +266,20 @@ ApplyInput:
 
 
 .process_buttons_down
+
+  ; check if there was any new press on the direction pad
+  ld   a, [input_down]
+  and  %11110000
+  cp   0
+  jp   z, .check_can_move
+
+  ; combine down and held buttons (for easier diagonal movement)
   ld   a, [input_down]
   ld   b, a
-
-.up
-  bit  INP_BIT_UP, b
-  jp   z, .down
-
-  ld   a, [cursor_y]
-  cp   0
-  jp   z, .down
-
-  dec  a
-  ld   [cursor_y], a
-  ; intentional fall-through
-
-.down
-  bit  INP_BIT_DOWN, b
-  jp   z, .left
-
-  ld   a, [cursor_y]
-  cp   GRID_HEIGHT - 1
-  jp   z, .left
-
-  inc  a
-  ld   [cursor_y], a
-  ; intentional fall-through
-
-.left
-  bit  INP_BIT_LEFT, b
-  jp   z, .right
-
-  ld   a, [cursor_x]
-  cp   0
-  jp   z, .right
-
-  dec  a
-  ld   [cursor_x], a
-  ; intentional fall-through
-
-.right
-  bit  INP_BIT_RIGHT, b
-  jp   z, .check_can_move
-
-  ld   a, [cursor_x]
-  cp   GRID_WIDTH - 1
-  jp   z, .check_can_move
-
-  inc  a
-  ld   [cursor_x], a
-  ; intentional fall-through
+  ld   a, [input_held]
+  or   b
+  ld   b, a
+  call CheckDirectionPad
 
 
 .check_can_move
@@ -367,6 +330,8 @@ ApplyInput:
 
 ; initial press of a button. Starts input mode
 .button_a
+  ld   a, [input_down]
+  ld   b, a
   bit  INP_BIT_A, b
   jp   z, .button_select
 
@@ -462,6 +427,63 @@ ApplyInput:
 .end
   ret
 
+
+
+;----------------------------------------------------
+; in:
+;   b = input state
+;----------------------------------------------------
+CheckDirectionPad:
+
+.up
+  bit  INP_BIT_UP, b
+  jp   z, .down
+
+  ld   a, [cursor_y]
+  cp   0
+  jp   z, .down
+
+  dec  a
+  ld   [cursor_y], a
+  ; intentional fall-through
+
+.down
+  bit  INP_BIT_DOWN, b
+  jp   z, .left
+
+  ld   a, [cursor_y]
+  cp   GRID_HEIGHT - 1
+  jp   z, .left
+
+  inc  a
+  ld   [cursor_y], a
+  ; intentional fall-through
+
+.left
+  bit  INP_BIT_LEFT, b
+  jp   z, .right
+
+  ld   a, [cursor_x]
+  cp   0
+  jp   z, .right
+
+  dec  a
+  ld   [cursor_x], a
+  ; intentional fall-through
+
+.right
+  bit  INP_BIT_RIGHT, b
+  jp   z, .done
+
+  ld   a, [cursor_x]
+  cp   GRID_WIDTH - 1
+  jp   z, .done
+
+  inc  a
+  ld   [cursor_x], a
+
+.done
+  ret
 
 
 ;----------------------------------------------------
