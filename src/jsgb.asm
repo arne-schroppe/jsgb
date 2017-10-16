@@ -33,6 +33,12 @@ sprites_tile_map_height EQU $08
 sprites_tile_data_size EQU $0400
 sprites_tile_count EQU $40
 
+_B equ 1
+_Y equ 2
+_P equ 3
+_R equ 4
+SB equ 5
+
 ;****************************************************************************************************************************************************
 ;*	Program Start
 ;****************************************************************************************************************************************************
@@ -341,12 +347,14 @@ ApplyInput:
   ld   d, a
   ld   a, [cursor_y]
   ld   e, a
-  call GetGridIndexForXAndY ; d, e -> c
+  call GetGridCellForXAndY ; d, e -> hl
+
   call ActivateJellyAtIndex ; c -> void
   call AddCursorPositionToActivationChain ; d, e -> void
   ld   a, 1
   ld   [grid_changed], a
 
+.button_a_done
   pop  bc
   pop  de
   jp   .handle_cursor_moved
@@ -851,6 +859,7 @@ DeactivateAllJellies:
 ;
 ; out:
 ;    hl = pointer to grid cell
+;     c = offset into grid from 0
 ;----------------------------------------------------
 GetGridCellForXAndY:
   call GetGridIndexForXAndY  ; d, e -> c
@@ -1156,7 +1165,6 @@ ShowSingleSprite:
 ;----------------------------------------------------
 UpdateCursorSpritePosition:
 
-
   ld    a, [cursor_x]
   add   a, GRID_START_X
 
@@ -1249,21 +1257,23 @@ ShowGrid:
   push  de
   push  bc
 
-  cp    1
+  cp    SB
+  jp    z, .show_hole
+  cp    _B
   jp    z, .show_1
-  cp    1 + ACTIVE_JELLY_MASK
+  cp    _B + ACTIVE_JELLY_MASK
   jp    z, .show_1_active
-  cp    2
+  cp    _Y
   jp    z, .show_2
-  cp    2 + ACTIVE_JELLY_MASK
+  cp    _Y + ACTIVE_JELLY_MASK
   jp    z, .show_2_active
-  cp    3
+  cp    _P
   jp    z, .show_3
-  cp    3 + ACTIVE_JELLY_MASK
+  cp    _P + ACTIVE_JELLY_MASK
   jp    z, .show_3_active
-  cp    4
+  cp    _R
   jp    z, .show_4
-  cp    4 + ACTIVE_JELLY_MASK
+  cp    _R + ACTIVE_JELLY_MASK
   jp    z, .show_4_active
   jp    .hide
 
@@ -1310,6 +1320,11 @@ ShowGrid:
 
 .hide
   ld    hl, blank_jelly
+  call  LoadTileAtPosition
+  jp    .next
+
+.show_hole
+  ld    hl, hole
   call  LoadTileAtPosition
   jp    .next
 
@@ -1439,44 +1454,52 @@ SECTION "Graphics", ROM0
 
 blank_jelly:
 db 1 ; palette
-db 0, 0, 0, 0
+db 20, 20, 20, 20
 
 
 active_jelly_1:
 db 1 ; palette
-db 34, 35, 42, 43
+db 2, 3, 8, 9
 
 inactive_jelly_1:
 db 1 ; palette
-db 50, 51, 58, 59
+db 2, 3, 10, 11
 
 active_jelly_2:
 db 2 ; palette
-db 36, 37, 44, 45
+db 4, 5, 8, 9
 
 inactive_jelly_2:
 db 2 ; palette
-db 52, 53, 60, 61
+db 4, 5, 10, 11
 
 active_jelly_3:
 db 3 ; palette
-db 38, 39, 46, 47
+db 12, 13, 8, 9
 
 inactive_jelly_3:
 db 3 ; palette
-db 54, 55, 62, 63
+db 12, 13, 10, 11
 
 active_jelly_4:
 db 4 ; palette
-db 32, 33, 40, 41
+db 0, 1, 8, 9
 
 inactive_jelly_4:
 db 4 ; palette
-db 48, 49, 56, 57
+db 0, 1, 10, 11
 
 cursor_sprite:
 db 1 ; palette
 db 16, 17, 24, 25
+
+hole:
+db 4 ; palette
+db 18, 19, 26, 27
+
+guard:
+db 4 ; palette
+db 6, 7, 14, 15
 
 
 SECTION "Levels", ROM0
@@ -1485,10 +1508,10 @@ level_1:
 db 1, 2, 2, 4, 4, 4, 1, 2
 db 1, 3, 3, 3, 1, 2, 1, 1
 db 1, 1, 2, 2, 2, 1, 2, 1
-db 2, 2, 2, 3, 3, 2, 1, 2
-db 2, 2, 2, 2, 3, 3, 1, 2
-db 2, 4, 4, 3, 1, 2, 1, 2
-db 1, 2, 2, 4, 1, 4, 1, 2
+db 2, SB, SB, 3, SB, SB, 1, 2
+db 2, SB, 2, 2, 3, SB, 1, 2
+db 2, SB, 4, 3, 1, SB, 1, 2
+db 1, SB, 2, 4, 1, SB, 1, 2
 
 
 ;----------------------------------------------------
@@ -1541,3 +1564,4 @@ ds 1
 
 random_number_seed:
 ds 1
+
